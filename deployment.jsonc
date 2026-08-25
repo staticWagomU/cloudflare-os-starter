@@ -90,7 +90,27 @@
   // Reference: docs/customization.md#custom-gatekeepers
   "customGatekeeper": {
     "name": "<ORGANIZATION_DISPLAY_NAME>",
-    "message": "<ORGANIZATION_GUIDANCE>"
+    "message": "<ORGANIZATION_GUIDANCE>",
+
+    // Verification mode for Restricted Knowledge. This does not use gigooo-identity.
+    // "local_account": one Cloudflare OS auto-provisioned account maps to one local principal.
+    // "access_email": use verificationEmail below as the temporary principal.
+    // "identity_future": reserved for a later gigooo-identity migration.
+    "authMode": "local_account",
+    "verificationEmail": null,
+
+    // Restricted Knowledge storage. Leave null/omitted until the evaluation resources exist.
+    // D1 requires an existing database name and ID.
+    "knowledgeDb": null,
+
+    // null asks Wrangler to provision an R2 bucket for KNOWLEDGE_OBJECTS.
+    // string binds an existing bucket name.
+    "knowledgeObjectsBucket": null,
+
+    // Optional semantic search. When null, the Gatekeeper falls back to keyword search.
+    // When set, the custom Gatekeeper also receives a WORKERS_AI binding for embeddings.
+    "knowledgeVectorizeIndex": null,
+    "embeddingModel": "@cf/baai/bge-base-en-v1.5"
   },
 
   // Explicit backend issue reports go to a private Worker that emits structured console errors.
