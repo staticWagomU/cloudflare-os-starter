@@ -1,16 +1,19 @@
 import {
   DurableObject,
-  RpcStub,
+  RpcStub as NativeRpcStub,
   RpcTarget,
   WorkerEntrypoint,
 } from "cloudflare:workers";
+import { RpcStub } from "capnweb";
 import { skipRpcValidation, validateRpc } from "capnweb-validate";
 import type {
   AccountDescription,
+  AppUiContext,
   ApprovalQueue,
   Gatekeeper,
   GatekeeperConnectCallback,
   GatekeeperConnectOptions,
+  GatekeeperUiFrame,
   GatekeeperUser,
   GatekeeperUserVerifier,
   ResourceConfiguratorFrame,
@@ -18,8 +21,23 @@ import type {
   SupportedResource,
   VendorDescription,
 } from "@gadgets/workshop-shared/gatekeeper";
-import type { CustomDeploymentInfo, CustomSession } from "./types.js";
+import {
+  KnowledgeRepository,
+  resolveVerificationPrincipal,
+  storageReady,
+} from "./knowledge.js";
+import type {
+  CustomDeploymentInfo,
+  CustomSession,
+  KnowledgeCollectionInput,
+  KnowledgeCollectionSummary,
+  KnowledgeDocument,
+  KnowledgeDocumentInput,
+  KnowledgePrincipal,
+  KnowledgeSearchResult,
+} from "./types.js";
 import TYPES_CODE from "./types-code.js";
+import APP_HTML from "./generated/app.txt";
 
 const CUSTOM_ICON = {
   url:
@@ -32,15 +50,20 @@ const CUSTOM_ICON = {
 type ObservationQueue = Pick<ApprovalQueue, "authorizeObservation"> &
   Partial<{ [Symbol.dispose](): void }>;
 
+type CustomAccountProps = {
+  accountId: string;
+  principal: KnowledgePrincipal;
+};
+
 export function describeCustomVendor(): VendorDescription {
   return {
-    displayName: "Custom Gatekeeper",
+    displayName: "Restricted Knowledge",
     url: "https://github.com/cloudflare/cloudflare-os-starter",
     logo: CUSTOM_ICON,
-    color: "#e8f2ff",
-    tagline: "Example organization-specific capability",
+    color: "#eef8f5",
+    tagline: "Search and maintain restricted internal knowledge",
     description:
-      "A minimal Gatekeeper to copy when connecting CloudflareOS to your organization's systems.",
+      "A verification-mode Gatekeeper for restricted internal collections, documents, tags, and freshness-aware search.",
     autoProvisionsAccount: true,
     providesAuth: false,
   };
@@ -48,9 +71,10 @@ export function describeCustomVendor(): VendorDescription {
 
 export function describeCustomAccount(): AccountDescription {
   return {
-    displayName: "Custom Gatekeeper",
+    displayName: "Restricted Knowledge",
     avatar: CUSTOM_ICON,
     singleton: { tsType: "CustomSession" },
+    providesUi: { title: "Restricted Knowledge", icon: CUSTOM_ICON },
   };
 }
 
@@ -58,19 +82,78 @@ export function describeCustomAccount(): AccountDescription {
 export class CustomSessionImpl extends RpcTarget implements CustomSession {
   readonly #approvalQueue: ObservationQueue;
   readonly #info: CustomDeploymentInfo;
+  readonly #repository: KnowledgeRepository;
+  readonly #principal: KnowledgePrincipal;
 
-  constructor(approvalQueue: ObservationQueue, info: CustomDeploymentInfo) {
+  constructor(
+    approvalQueue: ObservationQueue,
+    info: CustomDeploymentInfo,
+    repository: KnowledgeRepository,
+    principal: KnowledgePrincipal,
+  ) {
     super();
     this.#approvalQueue = approvalQueue;
     this.#info = info;
+    this.#repository = repository;
+    this.#principal = principal;
   }
 
   async getDeploymentInfo(): Promise<CustomDeploymentInfo> {
     await this.#approvalQueue.authorizeObservation({
       title: "Read deployment information",
-      description: "Read the custom information configured by this deployment.",
+      description: "Read Restricted Knowledge deployment diagnostics.",
     });
     return this.#info;
+  }
+
+  async listCollections(): Promise<KnowledgeCollectionSummary[]> {
+    let collections = await this.#repository.listCollections(this.#principal);
+    await this.#approvalQueue.authorizeObservation({
+      title: "List restricted knowledge collections",
+      description: `Listed ${collections.length} collection(s) visible to the current principal.`,
+      prohibitAllSharing: true,
+    });
+    return collections;
+  }
+
+  async createCollection(input: KnowledgeCollectionInput): Promise<KnowledgeCollectionSummary> {
+    return this.#repository.createCollection(this.#principal, input);
+  }
+
+  async search(
+    query: string,
+    options?: {
+      collectionId?: string;
+      tags?: string[];
+      from?: string;
+      to?: string;
+      freshness?: "prefer_recent" | "include_stale";
+      limit?: number;
+    },
+  ): Promise<KnowledgeSearchResult[]> {
+    let results = await this.#repository.search(this.#principal, query, options);
+    await this.#approvalQueue.authorizeObservation({
+      title: "Search restricted knowledge",
+      description: `Searched restricted knowledge and returned ${results.length} result(s).`,
+      prohibitAllSharing: true,
+    });
+    return results;
+  }
+
+  async readDocument(documentId: string): Promise<KnowledgeDocument | null> {
+    let document = await this.#repository.readDocument(this.#principal, documentId);
+    if (document) {
+      await this.#approvalQueue.authorizeObservation({
+        title: `Read restricted document: ${document.title}`,
+        description: `Read document ${document.id} from collection ${document.collectionId}.`,
+        prohibitAllSharing: true,
+      });
+    }
+    return document;
+  }
+
+  async addDocument(input: KnowledgeDocumentInput): Promise<KnowledgeDocument> {
+    return this.#repository.addDocument(this.#principal, input);
   }
 
   [Symbol.dispose](): void {
@@ -79,13 +162,48 @@ export class CustomSessionImpl extends RpcTarget implements CustomSession {
 }
 
 @validateRpc()
-export class CustomGatekeeper extends DurableObject<Cloudflare.Env> implements Gatekeeper<CustomSession> {
+export class KnowledgeAdminUi extends RpcTarget {
+  readonly #repository: KnowledgeRepository;
+  readonly #principal: KnowledgePrincipal;
+
+  constructor(repository: KnowledgeRepository, principal: KnowledgePrincipal) {
+    super();
+    this.#repository = repository;
+    this.#principal = principal;
+  }
+
+  listCollections(): Promise<KnowledgeCollectionSummary[]> {
+    return this.#repository.listCollections(this.#principal);
+  }
+
+  createCollection(input: KnowledgeCollectionInput): Promise<KnowledgeCollectionSummary> {
+    return this.#repository.createCollection(this.#principal, input);
+  }
+
+  addDocument(input: KnowledgeDocumentInput): Promise<KnowledgeDocument> {
+    return this.#repository.addDocument(this.#principal, input);
+  }
+
+  search(query: string, options?: Parameters<CustomSession["search"]>[1]):
+      Promise<KnowledgeSearchResult[]> {
+    return this.#repository.search(this.#principal, query, options);
+  }
+
+  readDocument(documentId: string): Promise<KnowledgeDocument | null> {
+    return this.#repository.readDocument(this.#principal, documentId);
+  }
+}
+
+@validateRpc()
+export class CustomGatekeeper
+  extends DurableObject<Cloudflare.Env, CustomAccountProps>
+  implements Gatekeeper<CustomSession> {
   async describe(): Promise<ResourceDescription> {
     return {
-      url: "custom://deployment-info",
-      title: "Deployment information",
-      snippet: "Organization-specific information supplied by this deployment.",
-      suggestedBindingName: "CUSTOM",
+      url: "custom://restricted-knowledge",
+      title: "Restricted Knowledge",
+      snippet: "Search and maintain restricted internal knowledge collections.",
+      suggestedBindingName: "KNOWLEDGE",
       tsType: "CustomSession",
     };
   }
@@ -98,35 +216,51 @@ export class CustomGatekeeper extends DurableObject<Cloudflare.Env> implements G
     return [];
   }
 
-  async startSession(approvalQueue: RpcStub<ApprovalQueue>): Promise<CustomSession> {
+  async startSession(approvalQueue: NativeRpcStub<ApprovalQueue>): Promise<CustomSession> {
     return new CustomSessionImpl(approvalQueue.dup(), {
       name: this.env.CUSTOM_NAME,
       message: this.env.CUSTOM_MESSAGE,
-    });
+      authMode: this.env.AUTH_MODE ?? "local_account",
+      storageReady: storageReady(this.env),
+    }, new KnowledgeRepository(this.env), this.ctx.props.principal);
   }
 
-  async addObserver(_id: string, _user: Fetcher<GatekeeperUserVerifier>): Promise<void> {}
+  async addObserver(_id: string, _user: Fetcher<GatekeeperUserVerifier>): Promise<void> {
+    throw new Error("Restricted Knowledge observations are not shareable in verification mode.");
+  }
   async removeObserver(_id: string): Promise<void> {}
 
   async applyAction(action: number): Promise<void> {
-    throw new Error(`Custom Gatekeeper has no actions (${action}).`);
+    throw new Error(`Restricted Knowledge has no queued actions (${action}) in verification mode.`);
   }
 
   async rejectAction(_action: number): Promise<void> {}
 
   async revertAction(_action: number): Promise<void> {
-    throw new Error("Custom Gatekeeper has no actions to revert.");
+    throw new Error("Restricted Knowledge has no queued actions to revert in verification mode.");
   }
 }
 
 @validateRpc()
-export class CustomAccount extends WorkerEntrypoint<Cloudflare.Env> implements GatekeeperUser {
+export class CustomAccount
+  extends WorkerEntrypoint<Cloudflare.Env, CustomAccountProps>
+  implements GatekeeperUser {
   async describe(): Promise<AccountDescription> {
     return describeCustomAccount();
   }
 
   async getSingletonGatekeeperClass(): Promise<DurableObjectClass<Gatekeeper<CustomSession>>> {
-    return this.ctx.exports.CustomGatekeeper({});
+    return this.ctx.exports.CustomGatekeeper({ props: this.ctx.props });
+  }
+
+  async startAppUi(_context: AppUiContext): Promise<GatekeeperUiFrame> {
+    return {
+      iframeHtml: APP_HTML,
+      ui: new RpcStub(new KnowledgeAdminUi(
+        new KnowledgeRepository(this.env),
+        this.ctx.props.principal,
+      )),
+    };
   }
 
   async getSupportedResources(): Promise<SupportedResource[]> {
@@ -148,21 +282,23 @@ export class CustomAccount extends WorkerEntrypoint<Cloudflare.Env> implements G
   async revoke(): Promise<void> {}
 
   reconnect(): Promise<{ url: string }> {
-    throw new Error("Custom Gatekeeper has no credentials to reconnect.");
+    throw new Error("Restricted Knowledge is auto-provisioned and has no credentials to reconnect.");
   }
 
   async getAuthenticatedEmail(): Promise<string | null> {
-    return null;
+    return this.ctx.props.principal.type === "access_email" ? this.ctx.props.principal.id : null;
   }
 
   @skipRpcValidation()
   async getVerifier(): Promise<Fetcher<GatekeeperUserVerifier>> {
-    return this.ctx.exports.CustomVerifier({});
+    return this.ctx.exports.CustomVerifier({ props: this.ctx.props });
   }
 }
 
 @validateRpc()
-export class CustomVerifier extends WorkerEntrypoint<Cloudflare.Env> implements GatekeeperUserVerifier {
+export class CustomVerifier
+  extends WorkerEntrypoint<Cloudflare.Env, CustomAccountProps>
+  implements GatekeeperUserVerifier {
   verify(): void {}
 }
 
@@ -174,14 +310,20 @@ export class GatekeeperVendor extends WorkerEntrypoint<Cloudflare.Env> {
 
   @skipRpcValidation()
   async createAccount(): Promise<Fetcher<GatekeeperUser>> {
-    return this.ctx.exports.CustomAccount({});
+    let accountId = crypto.randomUUID();
+    return this.ctx.exports.CustomAccount({
+      props: {
+        accountId,
+        principal: resolveVerificationPrincipal(this.env, accountId),
+      },
+    });
   }
 
   connectAccount(
     _callback: Fetcher<GatekeeperConnectCallback>,
     _options?: GatekeeperConnectOptions,
   ): Promise<{ url: string }> {
-    throw new Error("Custom Gatekeeper is auto-provisioned and has no connect flow.");
+    throw new Error("Restricted Knowledge is auto-provisioned and has no connect flow.");
   }
 
   async getSupportedResources(_options?: { userId?: string }): Promise<SupportedResource[]> {

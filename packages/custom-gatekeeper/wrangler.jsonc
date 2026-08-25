@@ -16,7 +16,8 @@
   ],
   "vars": {
     "CUSTOM_NAME": "Example organization",
-    "CUSTOM_MESSAGE": "Replace this with information useful to your organization."
+    "CUSTOM_MESSAGE": "Replace this with information useful to your organization.",
+    "AUTH_MODE": "local_account"
   },
   "observability": {
     "enabled": true,
