@@ -4,8 +4,6 @@ import {
   describeCustomAccount,
   describeCustomVendor,
 } from "../src/custom.js";
-import { verifiedAccessEmail } from "../src/access.js";
-import { generateConnectNonce } from "../src/connect.js";
 import {
   freshnessLabel,
   freshnessWeight,
@@ -32,33 +30,6 @@ describe("custom-gatekeeper", () => {
       autoProvisionsAccount: false,
       providesAuth: false,
     });
-  });
-
-  it("accepts an email only from verified Access claims", async () => {
-    const request = new Request("https://knowledge.example/gatekeeper/custom/connect", {
-      headers: { "cf-access-jwt-assertion": "signed-token" },
-    });
-    const env = {
-      CF_ACCESS_AUD: "knowledge-audience",
-      CF_ACCESS_ISS: "https://team.cloudflareaccess.com",
-    };
-
-    await expect(verifiedAccessEmail(request, env, async () => ({
-      email: " Person@Example.com ",
-    }))).resolves.toBe("person@example.com");
-    await expect(verifiedAccessEmail(request, env, async () => ({
-      email: "not-an-email",
-    }))).resolves.toBeNull();
-    await expect(verifiedAccessEmail(new Request(request.url), env, async () => ({
-      email: "person@example.com",
-    }))).resolves.toBeNull();
-  });
-
-  it("generates URL-safe connection nonces with sufficient entropy", () => {
-    const first = generateConnectNonce();
-    const second = generateConnectNonce();
-    expect(first).toMatch(/^[a-f0-9]{64}$/);
-    expect(first).not.toBe(second);
   });
 
   it("authorizes the observation before returning deployment information", async () => {

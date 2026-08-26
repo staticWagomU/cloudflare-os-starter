@@ -6,7 +6,7 @@ import type {
 
 const CONNECT_LIFETIME_MS = 10 * 60 * 1000;
 
-type PendingConnection = {
+export type PendingConnection = {
   nonce: string;
   expiresAt: number;
   state: "pending" | "completing";
@@ -23,6 +23,18 @@ function constantTimeEqual(left: string, right: string): boolean {
 
 export function generateConnectNonce(): string {
   return `${crypto.randomUUID().replaceAll("-", "")}${crypto.randomUUID().replaceAll("-", "")}`;
+}
+
+export function beginConnectionCompletion(
+  connection: PendingConnection | undefined,
+  nonce: string,
+  now = Date.now(),
+): PendingConnection | null {
+  if (!connection || connection.state !== "pending" || connection.expiresAt <= now ||
+      !constantTimeEqual(connection.nonce, nonce)) {
+    return null;
+  }
+  return { ...connection, state: "completing" };
 }
 
 export class AccessConnect extends DurableObject<Cloudflare.Env> {
@@ -42,15 +54,17 @@ export class AccessConnect extends DurableObject<Cloudflare.Env> {
 
   async complete(nonce: string, email: string): Promise<boolean> {
     const connection = await this.ctx.storage.get<PendingConnection>("connection");
-    if (!connection || connection.state !== "pending" ||
-        connection.expiresAt <= Date.now() || !constantTimeEqual(connection.nonce, nonce)) {
+    const completing = beginConnectionCompletion(connection, nonce);
+    if (!completing) return false;
+
+    await this.ctx.storage.put("connection", completing);
+
+    const callback = await this.ctx.storage.get<Fetcher<GatekeeperConnectCallback>>("callback");
+    if (!callback) {
+      await this.ctx.storage.deleteAll();
       return false;
     }
 
-    const callback = await this.ctx.storage.get<Fetcher<GatekeeperConnectCallback>>("callback");
-    if (!callback) return false;
-
-    await this.ctx.storage.put("connection", { ...connection, state: "completing" });
     const account = this.ctx.exports.CustomAccount({
       props: {
         accountId: this.ctx.id.toString(),
