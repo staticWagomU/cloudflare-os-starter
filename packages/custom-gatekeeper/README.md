@@ -7,6 +7,26 @@ Home, **Add resource** opens a configurator that searches Collection titles, des
 The resulting `KnowledgeCollectionSession` is fixed to the selected Collection and cannot search or
 read documents from another Collection.
 
+## UI mockup
+
+The interactive Kumo mockup is separate from the embedded production app:
+
+```sh
+pnpm run mockup:dev --host 127.0.0.1 --port 4174
+```
+
+- `/`: populated Collection browser
+- `/?state=empty`: initial state with no Collections, followed by the standalone creation page
+- `/?collection=empty`: a Collection with no documents
+
+Each Collection header links to a dedicated settings page for basic information and access control. For non-owners, every editable field is disabled and the page is read-only.
+
+Owners can change Collection settings and add documents. Editors can add documents, while readers can only search and read; the add-document action is disabled for readers.
+
+Document classification uses document tags only; the mockup intentionally has no Collection tags or separate document type. Tags use an Enter-to-confirm chip input with suggestions from tags already used in the selected Collection. The add-document dialog also accepts a single `.txt` or `.md` file by drag and drop (up to 1 MB). A blank title falls back to the information date.
+
+Freshness is derived from the information date. Owners and editors can change the date and toggle time-based search-ranking decay from the add-document dialog or the selected document's settings. Disabling decay displays the document as `鮮度対象外`; readers cannot change it.
+
 ## Adapt it
 
 Change only the pieces your integration needs:
