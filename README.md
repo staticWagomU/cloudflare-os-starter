@@ -22,7 +22,8 @@
 ## Four steps
 
 1. Install the dependencies and run `pnpm exec wrangler login`.
-2. Fill in `deployment.jsonc`: account ID, Worker names, hostname, Access audience, admin emails.
+2. Fill in `deployment.jsonc`, or use the ignored `deployment.local.jsonc` in a public fork: account
+   ID, Worker names, hostname, Access audience, admin emails.
 3. Run `pnpm check`, then `pnpm deploy`.
 4. Open `/admin` and set the site name, logo, and accent color; branding needs no redeploy.
 
@@ -80,7 +81,15 @@ Cloudflare OS supports several sign-in methods. This starter deploys [Cloudflare
 1. Choose a public hostname in an [active Cloudflare zone](https://developers.cloudflare.com/dns/zone-setups/), such as `os.example.com`.
 2. Create a [self-hosted Access application](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/) for that hostname.
 3. Copy its [application audience tag](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/#get-your-aud-tag).
-4. Open [`deployment.jsonc`](deployment.jsonc) and replace the active placeholders. Every control is annotated in place.
+4. Choose where to keep the deployment values:
+
+   - Private repository: replace the active placeholders in [`deployment.jsonc`](deployment.jsonc).
+   - Public repository: copy that template to `deployment.local.jsonc` and edit the ignored local
+     file. `pnpm check` and `pnpm deploy` automatically use it when present.
+
+   Every control is annotated in the template. The local file may contain non-secret but sensitive
+   account metadata; credentials and API tokens still belong in Wrangler secrets, never either
+   deployment file.
 
 The hostname belongs to the router, the only Worker here with a public route. Wrangler creates its DNS and TLS at deploy time. For an evaluation without a zone, switch the annotated route to `{ "workersDev": true }` and set `publicBaseUrl` to the resulting origin.
 

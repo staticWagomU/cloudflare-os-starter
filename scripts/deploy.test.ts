@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { parse, type ParseError } from "jsonc-parser";
-import { aiGatewayPlan, buildCommands, generateConfigs, validateConfig } from "./deploy.ts";
+import {
+  aiGatewayPlan,
+  buildCommands,
+  deploymentConfigName,
+  generateConfigs,
+  validateConfig,
+} from "./deploy.ts";
 import type {
   BaseConfigs,
   DeploymentConfig,
@@ -64,6 +70,11 @@ function variant(mutate: (config: Record<string, any>) => void): DeploymentConfi
   mutate(config);
   return config as DeploymentConfig;
 }
+
+test("uses an ignored local deployment config when the operator creates one", () => {
+  assert.equal(deploymentConfigName(false), "deployment.jsonc");
+  assert.equal(deploymentConfigName(true), "deployment.local.jsonc");
+});
 
 // Read from disk rather than inlined, including the Error Reporter's: deploy.ts derives every
 // generated config from these files, so a copy here could drift from what actually ships.
