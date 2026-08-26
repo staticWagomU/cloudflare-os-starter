@@ -27,8 +27,19 @@ const vitestScratch = [
 export default {
   run: {
     tasks: {
+      'build:app': {
+        command: ['tsc -p tsconfig.app.json', 'node build-app.mjs'],
+        input: [
+          { auto: true },
+          { pattern: '!**/dist-app/**', base: 'workspace' },
+          { pattern: '!**/src/generated/**', base: 'workspace' },
+          { pattern: '!**/.wrangler/**', base: 'workspace' },
+        ],
+        output: ['dist-app/**', 'src/generated/app.txt'],
+      },
       build: {
         command: 'tsc',
+        dependsOn: ['build:app'],
         input: [{ auto: true }, ownDist],
         output: ['dist/**'],
       },

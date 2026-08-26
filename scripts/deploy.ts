@@ -290,6 +290,44 @@ export function validateConfig(config: DeploymentConfig): DeploymentConfig {
     throw new Error("Context Artifacts namespace must be omitted or start with a letter or number and use only letters, numbers, dots, underscores, and hyphens.");
   }
 
+  const custom = config.customGatekeeper;
+  const authMode = custom.authMode;
+  if (authMode !== undefined &&
+      !["local_account", "access_email", "identity_future"].includes(authMode)) {
+    throw new Error(
+      "customGatekeeper.authMode must be local_account, access_email, or identity_future.");
+  }
+  if (custom.verificationEmail !== undefined && custom.verificationEmail !== null &&
+      !/^[^@\s]+@[^@\s]+$/.test(custom.verificationEmail)) {
+    throw new Error("customGatekeeper.verificationEmail must be null or an email address.");
+  }
+  if (custom.knowledgeDb !== undefined && custom.knowledgeDb !== null) {
+    if (typeof custom.knowledgeDb !== "object" ||
+        typeof custom.knowledgeDb.databaseName !== "string" ||
+        typeof custom.knowledgeDb.databaseId !== "string" ||
+        !custom.knowledgeDb.databaseName.trim() ||
+        !custom.knowledgeDb.databaseId.trim()) {
+      throw new Error(
+        "customGatekeeper.knowledgeDb must be null or { databaseName, databaseId }.");
+    }
+  }
+  if (custom.knowledgeObjectsBucket !== undefined &&
+      custom.knowledgeObjectsBucket !== null &&
+      (typeof custom.knowledgeObjectsBucket !== "string" ||
+       !custom.knowledgeObjectsBucket.trim())) {
+    throw new Error("customGatekeeper.knowledgeObjectsBucket must be null or a bucket name.");
+  }
+  if (custom.knowledgeVectorizeIndex !== undefined &&
+      custom.knowledgeVectorizeIndex !== null &&
+      (typeof custom.knowledgeVectorizeIndex !== "string" ||
+       !custom.knowledgeVectorizeIndex.trim())) {
+    throw new Error("customGatekeeper.knowledgeVectorizeIndex must be null or an index name.");
+  }
+  if (custom.embeddingModel !== undefined && custom.embeddingModel !== null &&
+      (typeof custom.embeddingModel !== "string" || !custom.embeddingModel.trim())) {
+    throw new Error("customGatekeeper.embeddingModel must be null or a model name.");
+  }
+
   const sampling = config.observability.headSamplingRate;
   if (typeof config.observability.enabled !== "boolean") {
     throw new Error("Observability enabled must be a boolean.");
@@ -550,7 +588,42 @@ export function generateConfigs(config: DeploymentConfig, bases: BaseConfigs): G
   customGatekeeper.vars = {
     CUSTOM_NAME: config.customGatekeeper.name,
     CUSTOM_MESSAGE: config.customGatekeeper.message,
+    AUTH_MODE: config.customGatekeeper.authMode ?? "local_account",
+    ...(config.customGatekeeper.verificationEmail
+      ? { CUSTOM_VERIFICATION_EMAIL: config.customGatekeeper.verificationEmail }
+      : {}),
+    ...(config.customGatekeeper.embeddingModel
+      ? { KNOWLEDGE_EMBEDDING_MODEL: config.customGatekeeper.embeddingModel }
+      : {}),
   };
+  if (config.customGatekeeper.knowledgeDb) {
+    customGatekeeper.d1_databases = [{
+      binding: "KNOWLEDGE_DB",
+      database_name: config.customGatekeeper.knowledgeDb.databaseName,
+      database_id: config.customGatekeeper.knowledgeDb.databaseId,
+    }];
+  } else {
+    delete customGatekeeper.d1_databases;
+  }
+  if (config.customGatekeeper.knowledgeObjectsBucket !== undefined) {
+    customGatekeeper.r2_buckets = [{
+      binding: "KNOWLEDGE_OBJECTS",
+      ...(config.customGatekeeper.knowledgeObjectsBucket
+        ? { bucket_name: config.customGatekeeper.knowledgeObjectsBucket }
+        : {}),
+    }];
+  } else {
+    delete customGatekeeper.r2_buckets;
+  }
+  if (config.customGatekeeper.knowledgeVectorizeIndex) {
+    customGatekeeper.vectorize = [{
+      binding: "KNOWLEDGE_INDEX",
+      index_name: config.customGatekeeper.knowledgeVectorizeIndex,
+    }];
+    customGatekeeper.ai = { binding: "WORKERS_AI" };
+  } else {
+    delete customGatekeeper.vectorize;
+  }
 
   if (errorReporter) {
     setCommon(errorReporter, config, config.workers.errorReporter!.name);

@@ -241,6 +241,7 @@ test("generates Access-mode Workshop, Context, and custom Gatekeeper configs", a
   assert.deepEqual(generated.customGatekeeper.vars, {
     CUSTOM_NAME: "Acme",
     CUSTOM_MESSAGE: "Use the company handbook.",
+    AUTH_MODE: "local_account",
   });
   assert.equal(generated.errorReporter!.name, "acme-cloudflare-os-errors");
   assert.deepEqual(generated.workshop.observability!.logs, {
@@ -252,6 +253,45 @@ test("generates Access-mode Workshop, Context, and custom Gatekeeper configs", a
   });
   assert.equal(generated.workshop.services!.some(
     (service) => service.binding === "FRONTEND_ERROR_REPORTER"), false);
+});
+
+test("generates Restricted Knowledge storage bindings when configured", async () => {
+  const generated = generateConfigs(variant((c) => {
+    c.customGatekeeper = {
+      ...c.customGatekeeper,
+      authMode: "access_email",
+      verificationEmail: "owner@example.com",
+      knowledgeDb: {
+        databaseName: "restricted-knowledge",
+        databaseId: "11111111-2222-3333-4444-555555555555",
+      },
+      knowledgeObjectsBucket: "restricted-knowledge-objects",
+      knowledgeVectorizeIndex: "restricted-knowledge-index",
+      embeddingModel: "@cf/baai/bge-base-en-v1.5",
+    };
+  }), await baseConfigs());
+
+  assert.deepEqual(generated.customGatekeeper.vars, {
+    CUSTOM_NAME: "Acme",
+    CUSTOM_MESSAGE: "Use the company handbook.",
+    AUTH_MODE: "access_email",
+    CUSTOM_VERIFICATION_EMAIL: "owner@example.com",
+    KNOWLEDGE_EMBEDDING_MODEL: "@cf/baai/bge-base-en-v1.5",
+  });
+  assert.deepEqual(generated.customGatekeeper.d1_databases, [{
+    binding: "KNOWLEDGE_DB",
+    database_name: "restricted-knowledge",
+    database_id: "11111111-2222-3333-4444-555555555555",
+  }]);
+  assert.deepEqual(generated.customGatekeeper.r2_buckets, [{
+    binding: "KNOWLEDGE_OBJECTS",
+    bucket_name: "restricted-knowledge-objects",
+  }]);
+  assert.deepEqual(generated.customGatekeeper.vectorize, [{
+    binding: "KNOWLEDGE_INDEX",
+    index_name: "restricted-knowledge-index",
+  }]);
+  assert.deepEqual(generated.customGatekeeper.ai, { binding: "WORKERS_AI" });
 });
 
 test("gives the router the public route, the frontend, and every service binding", async () => {

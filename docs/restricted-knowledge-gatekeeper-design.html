@@ -1,0 +1,1017 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Restricted Knowledge Gatekeeper Design</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #182027;
+      --muted: #59636e;
+      --line: #d8dee5;
+      --soft: #f5f7fa;
+      --panel: #ffffff;
+      --accent: #14705f;
+      --accent-2: #9a5b00;
+      --danger: #9b1c31;
+      --code: #26313d;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--soft);
+      color: var(--ink);
+      font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans",
+        "Yu Gothic", Meiryo, sans-serif;
+      line-height: 1.7;
+    }
+
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 40px 24px 72px;
+    }
+
+    .doc-header {
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 32px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 40px 0 12px;
+      padding-top: 4px;
+      font-size: 22px;
+      line-height: 1.35;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 8px;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    a {
+      color: #0a66c2;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+
+    code {
+      color: var(--code);
+      background: #eef2f5;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 12px 0 18px;
+      padding: 16px;
+      color: #edf5f1;
+      background: #182027;
+      border-radius: 8px;
+      line-height: 1.55;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      border-radius: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 20px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+    }
+
+    th {
+      background: #edf2f5;
+      font-weight: 650;
+    }
+
+    ul,
+    ol {
+      margin: 8px 0 18px 22px;
+      padding: 0;
+    }
+
+    li {
+      margin: 4px 0;
+    }
+
+    .lead {
+      max-width: 860px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .status {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 6px 10px;
+      border: 1px solid #bad7cf;
+      border-radius: 999px;
+      background: #eef8f5;
+      color: #0d5e50;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin: 16px 0 20px;
+    }
+
+    .card {
+      padding: 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .card h3 {
+      margin-top: 0;
+    }
+
+    .callout {
+      margin: 18px 0;
+      padding: 14px 16px;
+      background: #fff9ec;
+      border: 1px solid #e8cf9d;
+      border-left: 4px solid var(--accent-2);
+      border-radius: 8px;
+    }
+
+    .risk {
+      background: #fff3f5;
+      border-color: #ecc4cc;
+      border-left-color: var(--danger);
+    }
+
+    .ok {
+      background: #eef8f5;
+      border-color: #bad7cf;
+      border-left-color: var(--accent);
+    }
+
+    .diagram {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 10px;
+      margin: 14px 0 18px;
+    }
+
+    .node {
+      min-height: 92px;
+      padding: 12px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .node strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--accent);
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .decision {
+      margin: 16px 0 20px;
+      padding: 18px;
+      background: #ffffff;
+      border: 1px solid #bad7cf;
+      border-radius: 8px;
+    }
+
+    .decision strong {
+      color: var(--accent);
+    }
+
+    @media (max-width: 840px) {
+      .page {
+        padding: 28px 16px 56px;
+      }
+
+      .grid,
+      .diagram {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 26px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="doc-header">
+      <div class="status">Design review draft</div>
+      <h1>Restricted Knowledge Gatekeeper Design</h1>
+      <p class="lead">
+        Cloudflare OS の上流を改造せず、一部社員だけが検索・閲覧・追加できる社内ナレッジ基盤を
+        custom Gatekeeper と Cloudflare の管理リソースで検証し、将来 gigooo-identity に接続できる形で実装するための設計案です。
+      </p>
+    </div>
+
+    <div class="doc-section">
+      <h2>結論</h2>
+      <div class="decision">
+        <p>
+          <strong>Cloudflare OS の Context Gatekeeper は改造しません。</strong>
+          既存 Context は全社員向け・個人向けの軽いナレッジに使い、一部社員向けの AI Search は
+          <code>packages/custom-gatekeeper</code> を
+          <strong>Restricted Knowledge Gatekeeper</strong> として置き換えて実装します。
+        </p>
+        <p>
+          これにより、Cloudflare OS の submodule 更新で追従すべき境界を Gatekeeper 標準インターフェースに限定します。
+          上流の Context UI、Context storage、Workshop 内部 DB には直接手を入れません。
+          今回の検証では gigooo-identity に接続せず、Cloudflare Access の email などを暫定 principal として使います。
+          本番想定では社員の正準ID、Role、Permission を
+          <code>../../Gigooo-organization/gigooo-identity</code> に寄せます。
+        </p>
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <h2>今回の検証方針</h2>
+      <p>
+        検証版では <code>gigooo-identity</code> を使いません。
+        代わりに Cloudflare Access で認証済みの email、またはローカル検証用の固定 user key を
+        <code>access_email</code> または <code>local_account</code> principal として扱います。
+        これは検索、追加、Collection ACL、UI の動作を確認するための暫定手段です。
+      </p>
+      <div class="callout">
+        <p>
+          検証版の email principal は業務データの正準外部キーではありません。
+          本番化するときは D1 の ACL を <code>identity_user</code> / <code>role</code> / <code>permission</code>
+          に移行し、email は表示・入力補助に戻します。
+        </p>
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <h2>背景</h2>
+      <p>
+        相談内容は、NotebookLM に入れていたエンジニア情報、会話録、トラブル状況、MTG 内容を、
+        社内限定の AI Search として継続運用したいというものです。NotebookLM 的な「ノートに全部詰める」方式では、
+        ソース数やサイズ、権限分離、情報流出対策、継続投入の運用が課題になります。
+      </p>
+      <p>
+        Cloudflare OS には既に Context &amp; Skills UI があり、Collection 作成と文書追加ができます。
+        ただし現状の Context は private / public の境界が中心です。一部社員だけに Collection を公開するために
+        Context の visibility や ACL を上流コードへ直書きすると、Cloudflare OS 更新に追従しにくくなります。
+      </p>
+    </div>
+
+    <div class="doc-section">
+      <h2>設計目標</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>目標</h3>
+          <ul>
+            <li>Cloudflare OS 上の UI で Restricted Knowledge Collection を作成できる。</li>
+            <li>Markdown、議事録、会話録、トラブルメモを追加・更新できる。</li>
+            <li>Collection 単位で閲覧者と編集者を principal で制御できる。</li>
+            <li>Agent は検索・閲覧・追加を Gatekeeper API 経由で行う。</li>
+            <li>検索結果と回答に根拠文書を返し、権限のない文書は検索にも閲覧にも出さない。</li>
+            <li>Cloudflare OS の上流更新時に、独自差分が submodule 内へ残らない。</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>非目標</h3>
+          <ul>
+            <li>Cloudflare OS の Context Gatekeeper を fork して ACL を追加しない。</li>
+            <li>Workshop の内部 DB や共有モデルを直接触らない。</li>
+            <li>初期版では Slack / Google Drive / Meet 連携の自動同期までは含めない。</li>
+            <li>LLM の回答だけを保存して原文を捨てる設計にはしない。</li>
+            <li>Access の入口制御だけで文書単位 ACL を代替しない。</li>
+            <li>検証版のメールアドレス principal を、本番の正準外部キーとして扱わない。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <h2>上流追従の境界</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>領域</th>
+            <th>扱い</th>
+            <th>理由</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>cloudflare-os/</code> submodule</td>
+            <td>変更しない</td>
+            <td>更新衝突を避ける。Gatekeeper 標準インターフェースだけを依存点にする。</td>
+          </tr>
+          <tr>
+            <td><code>packages/custom-gatekeeper</code></td>
+            <td>主実装</td>
+            <td>この starter が想定する wrapper-owned Gatekeeper の置き場所。</td>
+          </tr>
+          <tr>
+            <td><code>scripts/deploy.ts</code></td>
+            <td>binding 追加時のみ最小変更</td>
+            <td>D1 / R2 / Vectorize / AI binding を custom Gatekeeper に渡す必要がある。</td>
+          </tr>
+          <tr>
+            <td><code>deployment.jsonc</code></td>
+            <td>非 secret の設定だけ追加</td>
+            <td>Worker 名、resource ID、機能フラグは設定値。秘密情報は入れない。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout ok">
+        <p>
+          現在の deploy script は Workshop に <code>GATEKEEPER_CUSTOM</code> service binding を張っています。
+          つまり custom Gatekeeper は Cloudflare OS の公式拡張点として Workshop に見えます。
+        </p>
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <h2>アーキテクチャ</h2>
+      <div class="diagram" aria-label="architecture">
+        <div class="node">
+          <strong>Cloudflare Access</strong>
+          社員認証、アプリ入口制御、Access assertion
+        </div>
+        <div class="node">
+          <strong>Router Worker</strong>
+          Cloudflare OS の唯一の公開入口
+        </div>
+        <div class="node">
+          <strong>Workshop</strong>
+          Agent / Gadget から Gatekeeper を呼び出す
+        </div>
+        <div class="node">
+          <strong>Restricted Knowledge Gatekeeper</strong>
+          UI、検索、閲覧、追加、ACL 判定
+        </div>
+        <div class="node">
+          <strong>Auth source + D1/R2/Vectorize</strong>
+          検証 principal、将来の Identity、metadata、原文、embedding index
+        </div>
+      </div>
+      <p>
+        Access はアプリ入口の認証です。検証版では Access email または固定 user key を暫定 principal にします。
+        本番想定では gigooo-identity が Cloudflare Access の認証結果から正準 user、role、
+        展開済み permission を返します。文書単位の認可は Gatekeeper が principal と D1 の ACL を照合して行います。
+        R2 は原文と正規化済み本文、D1 は metadata と ACL、Vectorize は semantic search 用の chunk embedding を持ちます。
+      </p>
+    </div>
+
+    <div class="doc-section">
+      <h2>認可モード</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>モード</th>
+            <th>使うもの</th>
+            <th>用途</th>
+            <th>注意</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>検証モード</td>
+            <td><code>access_email</code> / <code>local_account</code> principal</td>
+            <td>Collection 作成、文書追加、検索、ACL UI の動作確認。</td>
+            <td>email は暫定キー。社内本番データの正準キーにしない。</td>
+          </tr>
+          <tr>
+            <td>本番想定モード</td>
+            <td><code>identity_user</code> / <code>role</code> / <code>permission</code></td>
+            <td>gigooo-identity の user.id、roles、permissions による共有制御。</td>
+            <td>今回の検証では実装しないが、schema と API は移行可能な形にしておく。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="doc-section">
+      <h2>本番想定の Identity 連携</h2>
+      <p>
+        この節は将来設計です。今回の検証実装では <code>gigooo-identity</code> に接続しません。
+        <code>gigooo-identity</code> を社員 ID と認可情報の正本として使います。
+        Identity API は Cloudflare Access の assertion と呼び出し元 Service Token を検証し、
+        <code>user.id</code>、<code>email</code>、<code>roles</code>、<code>permissions</code> を返します。
+        業務データの正準キーは <code>user.id</code> です。メールアドレスは表示・入力補助には使えますが、
+        Collection owner や ACL の永続キーにはしません。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th>設計上の扱い</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>identity.user.id</code></td>
+            <td>Collection owner、document created_by、user ACL の正準キー。</td>
+          </tr>
+          <tr>
+            <td><code>identity.user.email</code></td>
+            <td>UI 表示、入力補助、監査ログ表示。永続 ACL の主キーにはしない。</td>
+          </tr>
+          <tr>
+            <td><code>identity.roles</code></td>
+            <td>部署・チーム相当の共有単位として使う。例: <code>knowledge:engineering</code>。</td>
+          </tr>
+          <tr>
+            <td><code>identity.permissions</code></td>
+            <td>アプリ操作の coarse gate に使う。例: <code>knowledge:collection.manage</code>。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        実装時は <code>@gigooo/identity-sdk</code> の <code>fetchIdentity()</code> / <code>createIdentityClient()</code> を使う想定です。
+        SDK は同一 request の Identity API 呼び出しを cache し、必要に応じて短時間の snapshot store を使えます。
+        ただし 401/403 や期限切れ JWT を古い snapshot で上書きしない契約なので、権限剥奪に対して fail-open しません。
+      </p>
+      <div class="callout risk">
+        <p>
+          実装前確認事項: 現在の Cloudflare OS Gatekeeper RPC では、auto-provisioned account の
+          <code>createAccount()</code> に raw request や Access JWT が直接渡りません。
+          Gatekeeper が Identity API を呼ぶには、Access assertion をどこで取得・転送するかを実装前に確認します。
+          候補は、Workshop 側に identity bridge を追加する、Gatekeeper UI の HTTP request だけ Identity 連携する、
+          あるいは Cloudflare OS profile id と Identity の JIT user を明示的に対応付ける方式です。
+          ここを曖昧にしたまま ACL 実装へ進みません。
+        </p>
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <h2>データモデル</h2>
+      <h3>D1</h3>
+      <pre><code>collections(
+  id text primary key,
+  title text not null,
+  description text not null,
+  owner_principal_type text not null, -- access_email / local_account / identity_user
+  owner_principal_id text not null,   -- verification email, local account id, or identity user.id
+  visibility text not null, -- restricted / private / all_employees
+  created_at text not null,
+  updated_at text not null,
+  archived_at text
+)
+
+collection_acl(
+  collection_id text not null,
+  principal_type text not null, -- access_email / local_account / identity_user / role / permission
+  principal_id text not null,   -- verification email, local account id, user.id, role id, or permission id
+  role text not null,           -- reader / editor / owner
+  primary key(collection_id, principal_type, principal_id)
+)
+
+documents(
+  id text primary key,
+  collection_id text not null,
+  title text not null,
+  source_type text not null,    -- meeting / incident / note / transcript / employee / other
+  source_date text,             -- meeting date, incident date, or date the note describes
+  freshness_policy text,        -- default / evergreen / time_sensitive
+  r2_key text not null,
+  content_type text not null,
+  created_by_principal_type text not null,
+  created_by_principal_id text not null,
+  created_at text not null,
+  updated_at text not null,
+  deleted_at text
+)
+
+tags(
+  id text primary key,
+  name text not null unique,
+  description text
+)
+
+document_tags(
+  document_id text not null,
+  tag_id text not null,
+  primary key(document_id, tag_id)
+)
+
+collection_tags(
+  collection_id text not null,
+  tag_id text not null,
+  primary key(collection_id, tag_id)
+)
+
+chunks(
+  id text primary key,
+  document_id text not null,
+  collection_id text not null,
+  chunk_index integer not null,
+  r2_text_key text not null,
+  vector_id text not null
+)</code></pre>
+
+      <h3>R2</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>prefix</th>
+            <th>内容</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>documents/{documentId}/source</code></td>
+            <td>アップロードされた原文。保存可否は運用ポリシーで決める。</td>
+          </tr>
+          <tr>
+            <td><code>documents/{documentId}/normalized.md</code></td>
+            <td>検索・回答生成に使う正規化済み Markdown。</td>
+          </tr>
+          <tr>
+            <td><code>chunks/{chunkId}.txt</code></td>
+            <td>Vectorize hit から読み戻す最小本文。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Vectorize metadata</h3>
+      <pre><code>{
+  "chunkId": "chunk_...",
+  "documentId": "doc_...",
+  "collectionId": "col_...",
+  "sourceType": "meeting",
+  "tags": ["incident", "backend"],
+  "sourceDate": "2026-08-20",
+  "updatedAt": "..."
+}</code></pre>
+      <p class="small">
+        ACL の最終判定は D1 で行います。Vectorize metadata filter は絞り込みの高速化に使えますが、
+        権限判定や鮮度スコアの唯一の根拠にはしません。
+      </p>
+    </div>
+
+    <div class="doc-section">
+      <h2>タグと鮮度</h2>
+      <p>
+        タグは Collection と Document の両方に付与できます。Collection tag は分類や既定の絞り込みに使い、
+        Document tag は検索 filter、検索結果表示、再ランキングに使います。タグは自由入力にすると表記ゆれが増えるため、
+        UI では既存タグの補完と新規タグ作成を分けます。
+      </p>
+      <p>
+        日付は <code>created_at</code> だけではなく <code>source_date</code> を持ちます。
+        <code>source_date</code> は「この情報が扱っている時点」です。会議録なら会議日、障害メモなら発生日または最終更新日、
+        社員情報なら確認日を入れます。取り込みが遅れても、情報の古さを正しく扱うためです。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th>使い方</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>tags</code></td>
+            <td>検索 filter、検索結果の説明、Collection 管理画面での絞り込みに使う。</td>
+          </tr>
+          <tr>
+            <td><code>source_date</code></td>
+            <td>鮮度スコアの基準日。情報の内容が古いほど検索順位を下げる。</td>
+          </tr>
+          <tr>
+            <td><code>freshness_policy</code></td>
+            <td><code>evergreen</code> は減衰を弱くし、<code>time_sensitive</code> は減衰を強くする。</td>
+          </tr>
+        </tbody>
+      </table>
+      <pre><code>finalScore =
+  vectorScore
+  * aclAllowed
+  * freshnessWeight(sourceDate, freshnessPolicy)
+  * tagBoost(queryTags, documentTags)</code></pre>
+      <p class="small">
+        鮮度とタグは Vectorize の一次 filter にも使えますが、最終順位は Gatekeeper 側で D1 metadata を読んで再計算します。
+        これにより、古い情報を完全に消さず、必要なら「古いが関連する情報」として下位に残せます。
+      </p>
+    </div>
+
+    <div class="doc-section">
+      <h2>Agent 向け API</h2>
+      <p>
+        API は capability-based にします。Agent が任意の D1/R2 キーを直接指定して広く読める形にはしません。
+        初期 API は検索・閲覧・追加に絞ります。
+      </p>
+      <pre><code>export interface KnowledgeCollectionSummary {
+  id: string;
+  title: string;
+  description: string;
+  role: "reader" | "editor" | "owner";
+  tags: string[];
+}
+
+export interface KnowledgeSearchResult {
+  documentId: string;
+  collectionId: string;
+  title: string;
+  excerpt: string;
+  sourceType: string;
+  sourceDate?: string;
+  tags: string[];
+  freshness?: "fresh" | "aging" | "stale" | "evergreen";
+  score?: number;
+}
+
+export interface KnowledgeDocument {
+  id: string;
+  collectionId: string;
+  title: string;
+  content: string;
+  sourceType: string;
+  sourceDate?: string;
+  tags: string[];
+}
+
+export type KnowledgePrincipal =
+  | { type: "access_email"; id: string }
+  | { type: "local_account"; id: string }
+  | { type: "identity_user"; id: string }
+  | { type: "role"; id: string }
+  | { type: "permission"; id: string };
+
+export interface KnowledgeCollectionInput {
+  title: string;
+  description: string;
+  readers: KnowledgePrincipal[];
+  editors?: KnowledgePrincipal[];
+  tags?: string[];
+}
+
+export interface KnowledgeDocumentInput {
+  collectionId: string;
+  title: string;
+  body: string;
+  sourceType?: "meeting" | "incident" | "note" | "transcript" | "employee" | "other";
+  sourceDate?: string;
+  freshnessPolicy?: "default" | "evergreen" | "time_sensitive";
+  tags?: string[];
+}
+
+export interface RestrictedKnowledgeSession {
+  listCollections(): Promise&lt;KnowledgeCollectionSummary[]&gt;;
+  createCollection(input: KnowledgeCollectionInput): Promise&lt;KnowledgeCollectionSummary&gt;;
+  search(query: string, options?: {
+    collectionId?: string;
+    tags?: string[];
+    from?: string;
+    to?: string;
+    freshness?: "prefer_recent" | "include_stale";
+    limit?: number;
+  }): Promise&lt;KnowledgeSearchResult[]&gt;;
+  readDocument(documentId: string): Promise&lt;KnowledgeDocument | null&gt;;
+  addDocument(input: KnowledgeDocumentInput): Promise&lt;KnowledgeDocument&gt;;
+}</code></pre>
+      <div class="callout">
+        <p>
+          <code>createCollection()</code> と <code>addDocument()</code> は外部世界に見える永続的な副作用です。
+          Gatekeeper の approval queue では read は observation、write は action として扱い、
+          実装時に submit / apply / reject の設計を分けます。
+        </p>
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <h2>Cloudflare OS 上の管理 UI</h2>
+      <p>
+        custom Gatekeeper の <code>AccountDescription</code> に <code>providesUi</code> を追加し、
+        <code>startAppUi()</code> で管理画面を提供します。UI は Cloudflare OS の Connector 画面から開き、
+        Restricted Knowledge 用の Collection 管理を行います。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>画面</th>
+            <th>機能</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Collection list</td>
+            <td>自分が owner/editor/reader の Collection を一覧表示。権限と最終更新を表示。</td>
+          </tr>
+          <tr>
+            <td>Create collection</td>
+            <td>名前、説明、reader/editor の principal を設定。検証版では email、本番想定では Identity User / Role / Permission。</td>
+          </tr>
+          <tr>
+            <td>Document editor</td>
+            <td>Markdown 追加・編集、source type、source date、タグ、鮮度ポリシー、要約説明の入力。</td>
+          </tr>
+          <tr>
+            <td>Access settings</td>
+            <td>owner が reader/editor を更新。監査ログを表示。</td>
+          </tr>
+          <tr>
+            <td>Search preview</td>
+            <td>その Collection 内で検索結果がどう見えるか確認。タグ filter と鮮度補正後の順位も表示。</td>
+          </tr>
+          <tr>
+            <td>Tag management</td>
+            <td>タグの作成、説明編集、統合、未使用タグの確認。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="doc-section">
+      <h2>権限設計</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>権限</th>
+            <th>できること</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>reader</td>
+            <td>検索、文書閲覧。追加・編集不可。</td>
+          </tr>
+          <tr>
+            <td>editor</td>
+            <td>reader の操作に加えて、文書追加・編集・削除。</td>
+          </tr>
+          <tr>
+            <td>owner</td>
+            <td>editor の操作に加えて、Collection 設定と ACL の変更。</td>
+          </tr>
+          <tr>
+            <td>admin</td>
+            <td>運用上の break-glass。通常の検索結果には自動混入させない。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout risk">
+        <p>
+          Access policy は「このアプリに入れる社員」を決めるだけです。
+          「この文書を読める社員」は Gatekeeper が現在の principal と D1 の ACL で毎回判定します。
+          検証版では <code>access_email</code> または <code>local_account</code>、
+          本番想定では gigooo-identity の user/role/permission を使います。
+          この二重化を崩すと、一部社員向けの要件を満たせません。
+        </p>
+      </div>
+    </div>
+
+    <div class="doc-section">
+      <h2>Observer policy</h2>
+      <p>
+        Gadget が共有されたとき、過去に Gatekeeper が読んだ情報を collaborator が見られる可能性があります。
+        Restricted Knowledge は低リスク情報ではないため、現在の custom Gatekeeper example のような no-op verifier は使いません。
+      </p>
+      <p>
+        方針は data-set tracking です。Gatekeeper は観測済み Collection ID を Durable Object storage に記録し、
+        <code>addObserver()</code> 時に observer の principal が全 Collection を読めるか確認します。
+        新しい Collection を初めて観測する read では、既存 observer に対して再確認し、権限がない observer を
+        <code>excludeObservers</code> に入れます。
+      </p>
+    </div>
+
+    <div class="doc-section">
+      <h2>検索・追加フロー</h2>
+      <h3>検索</h3>
+      <ol>
+        <li>検証版では Access email または固定 user key から <code>access_email</code> / <code>local_account</code> principal を作る。</li>
+        <li>本番想定では Access assertion から gigooo-identity を呼び、<code>user.id</code>、roles、permissions を解決する。</li>
+        <li>principal に一致する reader/editor/owner の Collection を D1 で引く。</li>
+        <li>query を Workers AI embedding model で embedding 化する。</li>
+        <li>Vectorize に問い合わせる。必要なら collection metadata、tag、date で一次 filter する。</li>
+        <li>hit の document / collection を D1 で再確認し、読めないものを落とす。</li>
+        <li>D1 の source date、freshness policy、tags を使って再ランキングする。</li>
+        <li>R2 から chunk text を読み、observation を記録して検索結果を返す。</li>
+      </ol>
+      <h3>追加</h3>
+      <ol>
+        <li>呼び出し元 principal を解決し、Collection に対する editor/owner 権限を D1 で確認する。</li>
+        <li>approval queue に action を登録する。</li>
+        <li>apply 時に D1 document record、tag relation、R2 normalized text、chunk、Vectorize vector を作る。</li>
+        <li>途中失敗時は retry 可能な indexing status を D1 に残す。</li>
+      </ol>
+    </div>
+
+    <div class="doc-section">
+      <h2>必要な Cloudflare binding</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>binding</th>
+            <th>用途</th>
+            <th>候補名</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>D1</td>
+            <td>Collection / document / ACL / audit / indexing status</td>
+            <td><code>KNOWLEDGE_DB</code></td>
+          </tr>
+          <tr>
+            <td>R2</td>
+            <td>原文、正規化 Markdown、chunk text</td>
+            <td><code>KNOWLEDGE_OBJECTS</code></td>
+          </tr>
+          <tr>
+            <td>Vectorize</td>
+            <td>semantic search index</td>
+            <td><code>KNOWLEDGE_INDEX</code></td>
+          </tr>
+          <tr>
+            <td>Workers AI</td>
+            <td>embedding 生成</td>
+            <td><code>WORKERS_AI</code> または custom worker 側の AI binding</td>
+          </tr>
+          <tr>
+            <td>Vars</td>
+            <td>検証版の認可モードと、将来の Identity 接続設定</td>
+            <td><code>AUTH_MODE=local_account</code> または <code>AUTH_MODE=access_email</code>。本番想定では <code>IDENTITY_API_URL</code>, <code>ACCESS_TEAM_DOMAIN</code>, <code>ACCESS_AUD</code>, <code>IDENTITY_APP_ID</code> を追加。</td>
+          </tr>
+          <tr>
+            <td>Secrets</td>
+            <td>本番想定の Identity API 呼び出し用 Service Token</td>
+            <td>今回の検証では不要。本番想定では <code>IDENTITY_SERVICE_CLIENT_ID</code>, <code>IDENTITY_SERVICE_CLIENT_SECRET</code>。</td>
+          </tr>
+          <tr>
+            <td>KV optional</td>
+            <td>本番想定の Identity SDK 短時間 snapshot store。5xx / network failure 時だけ使う。</td>
+            <td>今回の検証では不要。本番想定では <code>IDENTITY_SNAPSHOTS</code>。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="small">
+        Cloudflare docs 上、D1 は Workers から binding 経由で使う serverless SQL database、R2 は大容量の unstructured data 向け object storage、
+        Vectorize は Workers から embedding を保存・検索する vector database と説明されています。
+        Identity 用 Service Token secret は今回の検証では作らず、本番想定でも <code>deployment.jsonc</code> や tracked file には置きません。
+      </p>
+    </div>
+
+    <div class="doc-section">
+      <h2>段階的実装計画</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Phase</th>
+            <th>内容</th>
+            <th>完了条件</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>0. API review</td>
+            <td>この設計、agent-facing API、検証モードの principal 解決方式をレビューする。</td>
+            <td>API 名、権限、UI 範囲、storage 方針、検証モードの境界が承認される。</td>
+          </tr>
+          <tr>
+            <td>1. Verification read-only core</td>
+            <td><code>access_email</code> / <code>local_account</code> principal と D1/R2 の Collection、document、tag、source date を使い、list/search/read を実装する。</td>
+            <td>検証 principal に基づく権限つき検索、タグ filter、鮮度再ランキング、observation がテストで通る。</td>
+          </tr>
+          <tr>
+            <td>2. UI creation</td>
+            <td>Cloudflare OS 上の Gatekeeper UI で Collection 作成と document 追加を実装する。</td>
+            <td>UI 操作で D1/R2 に保存され、read API で読める。</td>
+          </tr>
+          <tr>
+            <td>3. Write actions</td>
+            <td>Agent からの create/add/update を approval queue action として実装する。</td>
+            <td>submit/apply/reject/revert の挙動が明確にテストされる。</td>
+          </tr>
+          <tr>
+            <td>4. Vectorize</td>
+            <td>chunking、embedding、indexing retry、metadata filter、D1 metadata による再ランキングを実装する。</td>
+            <td>検索品質、タグ filter、鮮度補正、ACL 後段判定が評価ケースで確認される。</td>
+          </tr>
+          <tr>
+            <td>5. Identity migration design</td>
+            <td>gigooo-identity 連携、principal migration、Identity Service Token、Access assertion の伝播方式を確定する。</td>
+            <td>検証版の <code>access_email</code> / <code>local_account</code> ACL を Identity principal へ移行できる計画がレビューされる。</td>
+          </tr>
+          <tr>
+            <td>6. Observer hardening</td>
+            <td>data-set tracking observer policy を実装する。</td>
+            <td>共有 Gadget で権限外 Collection が見えないことを検証する。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="doc-section">
+      <h2>テスト方針</h2>
+      <ul>
+        <li>unit: principal matching、ACL 判定、role order、tag normalization、freshness scoring、document path validation、chunking。</li>
+        <li>worker tests: Gatekeeper session の list/search/read/add と approval queue の呼び出し。</li>
+        <li>migration tests: D1 schema migration と seed data。</li>
+        <li>integration: 検証版では <code>access_email</code> / <code>local_account</code> の owner/editor/reader/denied user の操作差分。</li>
+        <li>future integration: gigooo-identity の user.id / roles / permissions を使った owner/editor/reader/denied user の操作差分。</li>
+        <li>search quality: 同じ関連度なら新しい情報が上に来ること、evergreen は不必要に下がらないこと。</li>
+        <li>security: 検索 hit の Vectorize metadata を偽っても D1 ACL で落ちること。</li>
+        <li>upgrade: Cloudflare OS submodule 更新後も custom package と deploy script の境界だけで差分確認できること。</li>
+      </ul>
+    </div>
+
+    <div class="doc-section">
+      <h2>リスクと保留事項</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th>判断</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>user identity を custom Gatekeeper がどう受け取るか</td>
+            <td>検証版では <code>access_email</code> / <code>local_account</code> で回避する。本番想定では Identity API に Access assertion が必要だが、Gatekeeper RPC の auto-provisioned account には raw request が直接渡らない。Workshop 側の bridge、Gatekeeper UI HTTP request、OS profile との対応付けのどれで扱うかを Identity 移行前に固定する。</td>
+          </tr>
+          <tr>
+            <td>Role / Permission を共有単位としてどこまで使うか</td>
+            <td>gigooo-identity の <code>can()</code> は exact-match 前提で、wildcard / deny / inheritance を持たない。Collection 共有に使う role / permission 名を初期実装前に固定する。</td>
+          </tr>
+          <tr>
+            <td>個人情報・機微情報</td>
+            <td>source type と classification を D1 に追加し、検索対象から除外できるようにする余地を残す。</td>
+          </tr>
+          <tr>
+            <td>外部 provider 利用</td>
+            <td>初期版は Workers AI embedding を優先。OpenAI/Anthropic 等を使う場合は data handling を別レビューする。</td>
+          </tr>
+          <tr>
+            <td>大規模取り込み</td>
+            <td>初期 UI 追加後に、Google Drive / Slack / Meet transcript 同期を別 Gatekeeper または batch として設計する。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="doc-section">
+      <h2>根拠と参照</h2>
+      <ul>
+        <li>Local: <code>packages/custom-gatekeeper/README.md</code> は custom Gatekeeper の置き換えポイントと observer policy の注意を説明しています。</li>
+        <li>Local: <code>scripts/deploy.ts</code> は Workshop と Router に <code>GATEKEEPER_CUSTOM</code> service binding を生成しています。</li>
+        <li>Local: <code>cloudflare-os/packages/gatekeeper-context/src/library-gatekeeper.ts</code> は Gatekeeper UI を <code>providesUi</code> と <code>startAppUi()</code> で提供する例です。</li>
+        <li>Local: <code>../../Gigooo-organization/gigooo-identity/README.md</code> は Access 認証結果から User、Role、展開済み Permission を返す Identity API の位置付けを説明しています。</li>
+        <li>Local: <code>../../Gigooo-organization/gigooo-identity/docs/guides/sdk-reference.mdx</code> は <code>user.id</code> を業務データの正準キーとして扱うこと、SDK の Identity 取得 API、snapshot store の契約を説明しています。</li>
+        <li>Local: <code>../../Gigooo-organization/gigooo-identity/docs/openapi.yaml</code> は <code>/v1/me</code> が user、roles、permissions を返すことを定義しています。</li>
+        <li>Local: <code>../../Gigooo-organization/gigooo-identity/docs/design/permissions.md</code> は permission / role の命名と exact-match の認可モデルを説明しています。</li>
+        <li><a href="https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/">Cloudflare Access self-hosted applications</a>: Access policy でアプリに到達できるユーザーを制御します。</li>
+        <li><a href="https://developers.cloudflare.com/d1/">Cloudflare D1</a>: Workers から利用できる serverless SQL database です。</li>
+        <li><a href="https://developers.cloudflare.com/r2/">Cloudflare R2</a>: 大容量の unstructured data を保存する object storage です。</li>
+        <li><a href="https://developers.cloudflare.com/vectorize/">Cloudflare Vectorize</a>: Workers から embedding を保存・検索できる vector database です。</li>
+        <li><a href="https://developers.cloudflare.com/vectorize/get-started/embeddings/">Vectorize and Workers AI</a>: Workers AI の model を使った embedding 生成と Vectorize 利用が説明されています。</li>
+        <li><a href="https://developers.cloudflare.com/workers-ai/platform/data-usage/">Workers AI data usage</a>: Workers AI における Customer Content の扱いを確認する参照です。</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

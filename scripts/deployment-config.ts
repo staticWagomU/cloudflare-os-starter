@@ -95,6 +95,25 @@ export interface DeploymentObservabilityConfig {
  * every field is still checked at runtime by `validateConfig` -- the type is what makes the
  * generation code readable, not a guarantee about what is on disk.
  */
+export interface CustomGatekeeperConfig {
+  /** Display name shown to agents and users. */
+  name: string;
+  /** Short deployment guidance shown to agents. */
+  message: string;
+  /** Verification mode uses local account IDs unless a fixed Access email is supplied. */
+  authMode?: "local_account" | "access_email" | "identity_future";
+  /** Optional fixed email principal for evaluation before gigooo-identity is connected. */
+  verificationEmail?: string | null;
+  /** D1 database backing Restricted Knowledge. Omit/null to leave the feature unbound. */
+  knowledgeDb?: { databaseName: string; databaseId: string } | null;
+  /** R2 bucket backing Restricted Knowledge document bodies. null requests Wrangler provisioning. */
+  knowledgeObjectsBucket?: string | null;
+  /** Optional Vectorize index for semantic search. Keyword search is used when absent. */
+  knowledgeVectorizeIndex?: string | null;
+  /** Workers AI embedding model used when Vectorize is configured. */
+  embeddingModel?: string | null;
+}
+
 export interface DeploymentConfig {
   /** Cloudflare account owning every Worker and provisioned resource. 32 hex characters. */
   accountId: string;
@@ -118,8 +137,8 @@ export interface DeploymentConfig {
   access: AccessConfig;
   aiGateway: AiGatewayConfigInput;
   context: ContextConfig;
-  /** Display text the example custom Gatekeeper serves to agents. */
-  customGatekeeper: { name: string; message: string };
+  /** Restricted Knowledge custom Gatekeeper configuration. */
+  customGatekeeper: CustomGatekeeperConfig;
   /** Private explicit-issue destination. */
   errorReporting: { enabled: boolean; environment?: string; release?: string | null };
   /** Workshop KV/R2. `null` requests Wrangler automatic provisioning. */
@@ -169,6 +188,10 @@ export type ProdWranglerConfig =
     observability?: ProdObservabilityConfig;
     /** Workers AI. Both the AI Gateway transport and what webFetch's `toMarkdown()` runs on. */
     ai?: BindingDecl;
+    /** D1 database bindings. */
+    d1_databases?: (BindingDecl & { database_name: string; database_id: string })[];
+    /** Vectorize index bindings. */
+    vectorize?: (BindingDecl & { index_name: string })[];
     /** Secrets wrangler refuses to deploy without. Emitted only when one is genuinely needed. */
     secrets?: { required: string[] };
     /** Artifacts namespaces. An array, unlike upstream's single-binding declaration. */
