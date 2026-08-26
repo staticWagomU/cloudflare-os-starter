@@ -677,7 +677,12 @@ export function buildCommands(config: DeploymentConfig): BuildCommand[] {
     // The Scheduler's `build` nests the same cached `vp run build:app`, so it needs the same pair.
     { args: submoduleBuild("@gadgets/gatekeeper-scheduler", "build:app") },
     { args: submoduleBuild("@gadgets/gatekeeper-scheduler") },
-    { args: ownBuild("custom-gatekeeper") },
+    {
+      args: ownBuild("custom-gatekeeper"),
+      env: {
+        VITE_FRONTEND_ERROR_REPORTING: config.errorReporting.enabled ? "true" : "false",
+      },
+    },
     ...(config.errorReporting.enabled ? [{ args: ownBuild("error-reporter") }] : []),
     // Access mode is a build-time constant in the frontend bundle (`src/useAuth.ts`), so it is set
     // here rather than inherited: a bundle built under a different value is wrong, not just stale.

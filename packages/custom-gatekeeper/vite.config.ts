@@ -37,9 +37,27 @@ export default {
         ],
         output: ['dist-app/**', 'src/generated/app.txt'],
       },
+      'clean:error-reporting-artifacts': {
+        command: 'node ../../cloudflare-os/scripts/clean-error-reporting-artifacts.ts .',
+        cache: false,
+      },
+      'build:configurator': {
+        command: 'node ../../cloudflare-os/scripts/build-gatekeeper-configurator.ts .',
+        dependsOn: ['clean:error-reporting-artifacts'],
+        input: [
+          { auto: true },
+          { pattern: '!**/src/generated/**', base: 'workspace' },
+        ],
+        output: [
+          'src/generated/collection-configurator-ui.txt',
+          'src/generated/collection-configurator-ui.js',
+          'src/generated/collection-configurator-ui.js.map',
+        ],
+        env: ['VITE_FRONTEND_ERROR_REPORTING'],
+      },
       build: {
         command: 'tsc',
-        dependsOn: ['build:app'],
+        dependsOn: ['build:app', 'build:configurator'],
         input: [{ auto: true }, ownDist],
         output: ['dist/**'],
       },

@@ -25,9 +25,16 @@ import {
   KnowledgeRepository,
   storageReady,
 } from "./knowledge.js";
+import {
+  COLLECTION_RESOURCE_URL_PATTERN,
+  collectionIdFromResourceUrl,
+  collectionResourceUrl,
+} from "./collection-resource.js";
+import { CollectionConfiguratorUi } from "./collection-configurator.js";
 import { generateConnectNonce } from "./connect.js";
 import type {
   CustomDeploymentInfo,
+  KnowledgeCollectionSession,
   CustomSession,
   KnowledgeCollectionInput,
   KnowledgeCollectionSummary,
@@ -38,6 +45,7 @@ import type {
 } from "./types.js";
 import TYPES_CODE from "./types-code.js";
 import APP_HTML from "./generated/app.txt";
+import COLLECTION_CONFIGURATOR_HTML from "./generated/collection-configurator-ui.txt";
 
 const CUSTOM_ICON = {
   url:
@@ -55,10 +63,14 @@ type CustomAccountProps = {
   principal: KnowledgePrincipal;
 };
 
-const KNOWLEDGE_RESOURCE: SupportedResource = {
-  urlPattern: "custom://restricted-knowledge",
-  title: "Collections",
-  description: "Permission-scoped collections with freshness-aware search.",
+type CustomGatekeeperProps = CustomAccountProps & {
+  collectionId?: string;
+};
+
+export const COLLECTION_RESOURCE: SupportedResource = {
+  urlPattern: COLLECTION_RESOURCE_URL_PATTERN,
+  title: "コレクション",
+  description: "アクセス権のあるコレクションを検索して追加します。",
   icon: CUSTOM_ICON,
 };
 
@@ -171,6 +183,86 @@ export class CustomSessionImpl extends RpcTarget implements CustomSession {
 }
 
 @validateRpc()
+export class KnowledgeCollectionSessionImpl extends RpcTarget
+  implements KnowledgeCollectionSession {
+  readonly #approvalQueue: ObservationQueue;
+  readonly #repository: KnowledgeRepository;
+  readonly #principal: KnowledgePrincipal;
+  readonly #collectionId: string;
+
+  constructor(
+    approvalQueue: ObservationQueue,
+    repository: KnowledgeRepository,
+    principal: KnowledgePrincipal,
+    collectionId: string,
+  ) {
+    super();
+    this.#approvalQueue = approvalQueue;
+    this.#repository = repository;
+    this.#principal = principal;
+    this.#collectionId = collectionId;
+  }
+
+  async getCollection(): Promise<KnowledgeCollectionSummary> {
+    let collection = await this.#requireCollection();
+    await this.#approvalQueue.authorizeObservation({
+      title: `Read collection: ${collection.title}`,
+      description: `Read metadata for collection ${collection.id}.`,
+      prohibitAllSharing: true,
+    });
+    return collection;
+  }
+
+  async search(
+    query: string,
+    options?: Parameters<KnowledgeCollectionSession["search"]>[1],
+  ): Promise<KnowledgeSearchResult[]> {
+    let collection = await this.#requireCollection();
+    let results = await this.#repository.search(this.#principal, query, {
+      tags: options?.tags,
+      from: options?.from,
+      to: options?.to,
+      freshness: options?.freshness,
+      limit: options?.limit,
+      collectionId: this.#collectionId,
+    });
+    await this.#approvalQueue.authorizeObservation({
+      title: `Search collection: ${collection.title}`,
+      description: `Searched collection ${collection.id} and returned ${results.length} result(s).`,
+      prohibitAllSharing: true,
+    });
+    return results;
+  }
+
+  async readDocument(documentId: string): Promise<KnowledgeDocument | null> {
+    await this.#requireCollection();
+    let document = await this.#repository.readDocumentInCollection(
+      this.#principal,
+      documentId,
+      this.#collectionId,
+    );
+    if (document) {
+      await this.#approvalQueue.authorizeObservation({
+        title: `Read collection document: ${document.title}`,
+        description: `Read document ${document.id} from collection ${this.#collectionId}.`,
+        prohibitAllSharing: true,
+      });
+    }
+    return document;
+  }
+
+  async #requireCollection(): Promise<KnowledgeCollectionSummary> {
+    let collection = await this.#repository.getCollection(this.#principal, this.#collectionId);
+    if (!collection) throw new Error("Collection not found or access has been revoked.");
+    return collection;
+  }
+
+  [Symbol.dispose](): void {
+    this.#approvalQueue[Symbol.dispose]?.();
+  }
+}
+
+@validateRpc()
 export class KnowledgeAdminUi extends RpcTarget {
   readonly #repository: KnowledgeRepository;
   readonly #principal: KnowledgePrincipal;
@@ -205,9 +297,23 @@ export class KnowledgeAdminUi extends RpcTarget {
 
 @validateRpc()
 export class CustomGatekeeper
-  extends DurableObject<Cloudflare.Env, CustomAccountProps>
-  implements Gatekeeper<CustomSession> {
+  extends DurableObject<Cloudflare.Env, CustomGatekeeperProps>
+  implements Gatekeeper<CustomSession | KnowledgeCollectionSession> {
   async describe(): Promise<ResourceDescription> {
+    if (this.ctx.props.collectionId) {
+      let collection = await new KnowledgeRepository(this.env).getCollection(
+        this.ctx.props.principal,
+        this.ctx.props.collectionId,
+      );
+      if (!collection) throw new Error("Collection not found or access has been revoked.");
+      return {
+        url: collectionResourceUrl(collection.id),
+        title: collection.title,
+        snippet: collection.description || "検索可能なコレクション",
+        suggestedBindingName: "COLLECTION",
+        tsType: "KnowledgeCollectionSession",
+      };
+    }
     return {
       url: "custom://restricted-knowledge",
       title: "Collections",
@@ -225,13 +331,24 @@ export class CustomGatekeeper
     return [];
   }
 
-  async startSession(approvalQueue: NativeRpcStub<ApprovalQueue>): Promise<CustomSession> {
+  async startSession(
+    approvalQueue: NativeRpcStub<ApprovalQueue>,
+  ): Promise<CustomSession | KnowledgeCollectionSession> {
+    let repository = new KnowledgeRepository(this.env);
+    if (this.ctx.props.collectionId) {
+      return new KnowledgeCollectionSessionImpl(
+        approvalQueue.dup(),
+        repository,
+        this.ctx.props.principal,
+        this.ctx.props.collectionId,
+      );
+    }
     return new CustomSessionImpl(approvalQueue.dup(), {
       name: this.env.CUSTOM_NAME,
       message: this.env.CUSTOM_MESSAGE,
       authMode: this.env.AUTH_MODE ?? "local_account",
       storageReady: storageReady(this.env),
-    }, new KnowledgeRepository(this.env), this.ctx.props.principal);
+    }, repository, this.ctx.props.principal);
   }
 
   async addObserver(_id: string, _user: Fetcher<GatekeeperUserVerifier>): Promise<void> {
@@ -259,7 +376,8 @@ export class CustomAccount
   }
 
   async getSingletonGatekeeperClass(): Promise<DurableObjectClass<Gatekeeper<CustomSession>>> {
-    return this.ctx.exports.CustomGatekeeper({ props: this.ctx.props });
+    return this.ctx.exports.CustomGatekeeper({ props: this.ctx.props }) as
+      DurableObjectClass<Gatekeeper<CustomSession>>;
   }
 
   async startAppUi(_context: AppUiContext): Promise<GatekeeperUiFrame> {
@@ -273,15 +391,41 @@ export class CustomAccount
   }
 
   async getSupportedResources(): Promise<SupportedResource[]> {
-    return [];
+    return [COLLECTION_RESOURCE];
   }
 
-  getGatekeeperClassFor(_url: string): never {
-    throw new Error("Custom Gatekeeper has no URL-addressed resources.");
+  async getGatekeeperClassFor(url: string): Promise<{
+    class: DurableObjectClass<Gatekeeper<KnowledgeCollectionSession>>;
+    resource: SupportedResource;
+  }> {
+    let collectionId = collectionIdFromResourceUrl(url);
+    if (!collectionId) throw new Error("Invalid collection resource URL.");
+    let collection = await new KnowledgeRepository(this.env).getCollection(
+      this.ctx.props.principal,
+      collectionId,
+    );
+    if (!collection) throw new Error("Collection not found or access has been revoked.");
+    let props: CustomGatekeeperProps = { ...this.ctx.props, collectionId };
+    return {
+      class: this.ctx.exports.CustomGatekeeper({ props }) as
+        DurableObjectClass<Gatekeeper<KnowledgeCollectionSession>>,
+      resource: COLLECTION_RESOURCE,
+    };
   }
 
-  startResourceConfigurator(_resourceUrlPattern: string): Promise<ResourceConfiguratorFrame> {
-    throw new Error("Custom Gatekeeper has no URL-addressed resources.");
+  async startResourceConfigurator(
+    resourceUrlPattern: string,
+  ): Promise<ResourceConfiguratorFrame> {
+    if (resourceUrlPattern !== COLLECTION_RESOURCE.urlPattern) {
+      throw new Error(`Unsupported resource configurator type: ${resourceUrlPattern}`);
+    }
+    return {
+      iframeHtml: COLLECTION_CONFIGURATOR_HTML,
+      ui: new RpcStub(new CollectionConfiguratorUi(
+        new KnowledgeRepository(this.env),
+        this.ctx.props.principal,
+      )),
+    };
   }
 
   async ensureResources(_resourceUrlPatterns: string[]): Promise<{ url?: string }> {
@@ -351,7 +495,7 @@ export class GatekeeperVendor extends WorkerEntrypoint<Cloudflare.Env> {
   }
 
   async getSupportedResources(_options?: { userId?: string }): Promise<SupportedResource[]> {
-    return [KNOWLEDGE_RESOURCE];
+    return [COLLECTION_RESOURCE];
   }
 
   async getTypeScriptTypes(): Promise<string> {

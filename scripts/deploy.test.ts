@@ -651,10 +651,24 @@ test("rebuilds the Context configurator app rather than replaying it", () => {
 });
 
 test("passes VITE_CF_ACCESS_MODE explicitly rather than inheriting it", () => {
-  const withAccessMode = buildCommands(validConfig).filter(({ env }) => env);
+  const withAccessMode = buildCommands(validConfig)
+    .filter(({ env }) => env?.VITE_CF_ACCESS_MODE !== undefined);
   assert.deepEqual(withAccessMode.map(({ env }) => env), [{ VITE_CF_ACCESS_MODE: "true" }]);
   // It has to reach the frontend, which inlines it into the bundle, and nothing else.
   assert.match(withAccessMode[0].args.join(" "), /@gadgets\/workshop-frontend/);
+});
+
+test("builds the custom configurator with the approved error-reporting mode", () => {
+  const enabled = buildCommands(validConfig)
+    .find(({ args }) => args.includes("custom-gatekeeper"));
+  assert.deepEqual(enabled?.env, { VITE_FRONTEND_ERROR_REPORTING: "true" });
+
+  const disabledConfig = variant((config) => {
+    config.errorReporting = { enabled: false };
+  });
+  const disabled = buildCommands(disabledConfig)
+    .find(({ args }) => args.includes("custom-gatekeeper"));
+  assert.deepEqual(disabled?.env, { VITE_FRONTEND_ERROR_REPORTING: "false" });
 });
 
 test("builds the frontend before the router", () => {
