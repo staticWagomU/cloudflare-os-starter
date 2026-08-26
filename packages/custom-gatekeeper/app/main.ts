@@ -126,19 +126,19 @@ function render(): void {
               ${renderCollections()}
             </div>
           </div>
-          <form class="panel form" data-form="collection">
+          <section class="panel form" data-fields="collection">
             <h2>New Collection</h2>
             <label>Title<input name="title" required></label>
             <label>Description<textarea name="description" rows="3"></textarea></label>
             <label>Tags<input name="tags" placeholder="incident, backend"></label>
             <label>Readers<input name="readers" placeholder="reader@example.com"></label>
             <label>Editors<input name="editors" placeholder="editor@example.com"></label>
-            <button type="submit" ${state.busy ? "disabled" : ""}>Create</button>
-          </form>
+            <button type="button" data-action="create-collection" ${state.busy ? "disabled" : ""}>Create</button>
+          </section>
         </aside>
 
         <section class="workspace">
-          <form class="panel search" data-form="search">
+          <section class="panel search" data-fields="search">
             <div>
               <h2>Search</h2>
               <p>${escapeHtml(currentCollectionLabel())}</p>
@@ -151,11 +151,11 @@ function render(): void {
                 <option value="include_stale">Include stale</option>
               </select>
             </label>
-            <button type="submit" ${state.busy ? "disabled" : ""}>Search</button>
-          </form>
+            <button type="button" data-action="search" ${state.busy ? "disabled" : ""}>Search</button>
+          </section>
 
           <div class="split">
-            <form class="panel form" data-form="document">
+            <section class="panel form" data-fields="document">
               <h2>Add Document</h2>
               <label>Collection${renderCollectionSelect("collectionId")}</label>
               <label>Title<input name="title" required></label>
@@ -179,8 +179,8 @@ function render(): void {
               </label>
               <label>Tags<input name="tags" placeholder="meeting, action-item"></label>
               <label>Body<textarea name="body" rows="10" required></textarea></label>
-              <button type="submit" ${state.busy || !state.collections.length ? "disabled" : ""}>Add</button>
-            </form>
+              <button type="button" data-action="add-document" ${state.busy || !state.collections.length ? "disabled" : ""}>Add</button>
+            </section>
 
             <div class="panel results">
               <div class="panel-head">
@@ -277,18 +277,23 @@ function bindEvents(): void {
       void readDocument(button.dataset.id ?? "");
     });
   });
-  appRoot.querySelector<HTMLFormElement>('[data-form="collection"]')?.addEventListener("submit", event => {
-    event.preventDefault();
-    void createCollection(new FormData(event.currentTarget as HTMLFormElement));
+  appRoot.querySelector('[data-action="create-collection"]')?.addEventListener("click", () => {
+    void createCollection(readFields("collection"));
   });
-  appRoot.querySelector<HTMLFormElement>('[data-form="document"]')?.addEventListener("submit", event => {
-    event.preventDefault();
-    void addDocument(new FormData(event.currentTarget as HTMLFormElement));
+  appRoot.querySelector('[data-action="add-document"]')?.addEventListener("click", () => {
+    void addDocument(readFields("document"));
   });
-  appRoot.querySelector<HTMLFormElement>('[data-form="search"]')?.addEventListener("submit", event => {
-    event.preventDefault();
-    void search(new FormData(event.currentTarget as HTMLFormElement));
+  appRoot.querySelector('[data-action="search"]')?.addEventListener("click", () => {
+    void search(readFields("search"));
   });
+}
+
+function readFields(scope: string): FormData {
+  const data = new FormData();
+  const container = appRoot.querySelector<HTMLElement>(`[data-fields="${scope}"]`);
+  container?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>("[name]")
+    .forEach(control => data.append(control.name, control.value));
+  return data;
 }
 
 async function loadCollections(): Promise<void> {
