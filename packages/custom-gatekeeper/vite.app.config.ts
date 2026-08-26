@@ -42,6 +42,9 @@ function emitAppText(): Plugin {
 }
 
 export default defineConfig({
+  esbuild: {
+    jsx: "automatic",
+  },
   plugins: [emitAppText()],
   build: {
     outDir: "dist-app",
