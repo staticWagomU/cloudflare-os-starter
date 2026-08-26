@@ -65,16 +65,6 @@ export type KnowledgeEnv = {
   KNOWLEDGE_EMBEDDING_MODEL?: string;
 };
 
-export function resolveVerificationPrincipal(
-  env: Pick<Cloudflare.Env, "CUSTOM_VERIFICATION_EMAIL" | "AUTH_MODE">,
-  accountId: string,
-): KnowledgePrincipal {
-  if (env.AUTH_MODE === "access_email" && env.CUSTOM_VERIFICATION_EMAIL?.trim()) {
-    return { type: "access_email", id: env.CUSTOM_VERIFICATION_EMAIL.trim().toLowerCase() };
-  }
-  return { type: "local_account", id: accountId };
-}
-
 export function storageReady(env: KnowledgeEnv): boolean {
   return Boolean(env.KNOWLEDGE_DB && env.KNOWLEDGE_OBJECTS);
 }
@@ -85,7 +75,7 @@ export function normalizeTags(tags: string[] | undefined): string[] {
     let normalized = tag.trim().replace(/^#/, "").replace(/\s+/g, "-").toLowerCase();
     if (normalized && normalized.length <= 64) seen.add(normalized);
   }
-  return [...seen].sort();
+  return [...seen].toSorted();
 }
 
 export function freshnessWeight(

@@ -23,9 +23,9 @@ import type {
 } from "@gadgets/workshop-shared/gatekeeper";
 import {
   KnowledgeRepository,
-  resolveVerificationPrincipal,
   storageReady,
 } from "./knowledge.js";
+import { generateConnectNonce } from "./connect.js";
 import type {
   CustomDeploymentInfo,
   CustomSession,
@@ -55,7 +55,16 @@ type CustomAccountProps = {
   principal: KnowledgePrincipal;
 };
 
-export function describeCustomVendor(): VendorDescription {
+const KNOWLEDGE_RESOURCE: SupportedResource = {
+  urlPattern: "custom://restricted-knowledge",
+  title: "Restricted Knowledge",
+  description: "Private collections and freshness-aware internal knowledge search.",
+  icon: CUSTOM_ICON,
+};
+
+export function describeCustomVendor(
+  authMode: Cloudflare.Env["AUTH_MODE"] = "local_account",
+): VendorDescription {
   return {
     displayName: "Restricted Knowledge",
     url: "https://github.com/cloudflare/cloudflare-os-starter",
@@ -64,7 +73,7 @@ export function describeCustomVendor(): VendorDescription {
     tagline: "Search and maintain restricted internal knowledge",
     description:
       "A verification-mode Gatekeeper for restricted internal collections, documents, tags, and freshness-aware search.",
-    autoProvisionsAccount: true,
+    autoProvisionsAccount: authMode === "local_account",
     providesAuth: false,
   };
 }
@@ -305,29 +314,44 @@ export class CustomVerifier
 @validateRpc()
 export class GatekeeperVendor extends WorkerEntrypoint<Cloudflare.Env> {
   async describe(): Promise<VendorDescription> {
-    return describeCustomVendor();
+    return describeCustomVendor(this.env.AUTH_MODE);
   }
 
   @skipRpcValidation()
   async createAccount(): Promise<Fetcher<GatekeeperUser>> {
+    if ((this.env.AUTH_MODE ?? "local_account") !== "local_account") {
+      throw new Error("Restricted Knowledge requires a verified Access connection.");
+    }
     let accountId = crypto.randomUUID();
     return this.ctx.exports.CustomAccount({
       props: {
         accountId,
-        principal: resolveVerificationPrincipal(this.env, accountId),
+        principal: { type: "local_account", id: accountId },
       },
     });
   }
 
-  connectAccount(
-    _callback: Fetcher<GatekeeperConnectCallback>,
+  async connectAccount(
+    callback: Fetcher<GatekeeperConnectCallback>,
     _options?: GatekeeperConnectOptions,
   ): Promise<{ url: string }> {
-    throw new Error("Restricted Knowledge is auto-provisioned and has no connect flow.");
+    if (this.env.AUTH_MODE !== "access_email") {
+      throw new Error("Restricted Knowledge is auto-provisioned in local verification mode.");
+    }
+    if (!this.env.BASE_URL) {
+      throw new Error("Restricted Knowledge BASE_URL is not configured.");
+    }
+
+    const objectId = this.env.ACCESS_CONNECT.newUniqueId();
+    const nonce = generateConnectNonce();
+    await this.env.ACCESS_CONNECT.get(objectId).prepare(callback, nonce);
+    return {
+      url: `${this.env.BASE_URL.replace(/\/$/, "")}/${objectId.toString()}/${nonce}`,
+    };
   }
 
   async getSupportedResources(_options?: { userId?: string }): Promise<SupportedResource[]> {
-    return [];
+    return [KNOWLEDGE_RESOURCE];
   }
 
   async getTypeScriptTypes(): Promise<string> {

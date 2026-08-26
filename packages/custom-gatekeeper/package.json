@@ -11,7 +11,8 @@
   "dependencies": {
     "@gadgets/workshop-shared": "workspace:*",
     "capnweb": "catalog:",
-    "capnweb-validate": "catalog:"
+    "capnweb-validate": "catalog:",
+    "jose": "^6.2.8"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "catalog:",
