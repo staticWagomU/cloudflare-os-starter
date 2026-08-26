@@ -47,7 +47,7 @@ async function accessToken(options: {
 }
 
 function requestWithToken(token: string): Request {
-  return new Request("https://knowledge.example/gatekeeper/custom/connect", {
+  return new Request("https://knowledge.example/gatekeeper/collections/connect", {
     headers: { "cf-access-jwt-assertion": token },
   });
 }
@@ -91,7 +91,7 @@ describe("Cloudflare Access verification", () => {
       verifyWithTestKey,
     )).resolves.toBeNull();
     await expect(verifiedAccessEmail(
-      new Request("https://knowledge.example/gatekeeper/custom/connect"),
+      new Request("https://knowledge.example/gatekeeper/collections/connect"),
       env,
       verifyWithTestKey,
     )).resolves.toBeNull();

@@ -369,7 +369,7 @@
       </table>
       <div class="callout ok">
         <p>
-          現在の deploy script は Workshop に <code>GATEKEEPER_CUSTOM</code> service binding を張っています。
+          現在の deploy script は Workshop に <code>GATEKEEPER_COLLECTIONS</code> service binding を張っています。
           つまり custom Gatekeeper は Cloudflare OS の公式拡張点として Workshop に見えます。
         </p>
       </div>
@@ -998,7 +998,7 @@ export interface RestrictedKnowledgeSession {
       <h2>根拠と参照</h2>
       <ul>
         <li>Local: <code>packages/custom-gatekeeper/README.md</code> は custom Gatekeeper の置き換えポイントと observer policy の注意を説明しています。</li>
-        <li>Local: <code>scripts/deploy.ts</code> は Workshop と Router に <code>GATEKEEPER_CUSTOM</code> service binding を生成しています。</li>
+        <li>Local: <code>scripts/deploy.ts</code> は Workshop と Router に <code>GATEKEEPER_COLLECTIONS</code> service binding を生成しています。</li>
         <li>Local: <code>cloudflare-os/packages/gatekeeper-context/src/library-gatekeeper.ts</code> は Gatekeeper UI を <code>providesUi</code> と <code>startAppUi()</code> で提供する例です。</li>
         <li>Local: <code>../../Gigooo-organization/gigooo-identity/README.md</code> は Access 認証結果から User、Role、展開済み Permission を返す Identity API の位置付けを説明しています。</li>
         <li>Local: <code>../../Gigooo-organization/gigooo-identity/docs/guides/sdk-reference.mdx</code> は <code>user.id</code> を業務データの正準キーとして扱うこと、SDK の Identity 取得 API、snapshot store の契約を説明しています。</li>

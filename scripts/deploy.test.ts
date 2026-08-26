@@ -232,7 +232,7 @@ test("generates Access-mode Workshop, Context, and custom Gatekeeper configs", a
       entrypoint: "GatekeeperVendor",
     },
     {
-      binding: "GATEKEEPER_CUSTOM",
+      binding: "GATEKEEPER_COLLECTIONS",
       service: "acme-cloudflare-os-custom",
       entrypoint: "GatekeeperVendor",
     },
@@ -285,7 +285,7 @@ test("generates Restricted Knowledge storage bindings when configured", async ()
     CUSTOM_NAME: "Acme",
     CUSTOM_MESSAGE: "Use the company handbook.",
     AUTH_MODE: "access_email",
-    BASE_URL: "https://os.example.com/gatekeeper/custom",
+    BASE_URL: "https://os.example.com/gatekeeper/collections",
     CF_ACCESS_ISS: "https://acme.cloudflareaccess.com",
     CF_ACCESS_AUD: "access-audience",
     KNOWLEDGE_EMBEDDING_MODEL: "@cf/baai/bge-base-en-v1.5",
@@ -323,7 +323,7 @@ test("gives the router the public route, the frontend, and every service binding
     { binding: "WORKSHOP_BACKEND", service: "acme-cloudflare-os-backend" },
     { binding: "GATEKEEPER_CONTEXT", service: "acme-cloudflare-os-context" },
     { binding: "GATEKEEPER_SCHEDULER", service: "acme-cloudflare-os-scheduler" },
-    { binding: "GATEKEEPER_CUSTOM", service: "acme-cloudflare-os-custom" },
+    { binding: "GATEKEEPER_COLLECTIONS", service: "acme-cloudflare-os-custom" },
   ]);
   // Inherited untouched: the base config already carries the ASSETS binding, the SPA fallback, and
   // the /gatekeeper/* prefix an OAuth Gatekeeper redirect needs.

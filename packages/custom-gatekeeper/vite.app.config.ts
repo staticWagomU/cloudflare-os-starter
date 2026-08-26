@@ -16,7 +16,7 @@ function emitAppText(): Plugin {
         /<script type="module" crossorigin src="\/([^"]+)"><\/script>/g,
         (_match, file: string) => {
           const script = readFileSync(resolve(pkgDir, "dist-app", file), "utf8");
-          return `<script type="module">${script}\n//# sourceURL=app:///gatekeeper/custom/restricted-knowledge.js</script>`;
+          return `<script type="module">${script}\n//# sourceURL=app:///gatekeeper/collections/restricted-knowledge.js</script>`;
         },
       );
       html = html.replace(

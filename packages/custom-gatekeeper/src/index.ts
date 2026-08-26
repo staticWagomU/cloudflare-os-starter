@@ -3,7 +3,7 @@ export * from "./connect.js";
 
 import { verifiedAccessEmail } from "./access.js";
 
-const CONNECT_PATH = /^\/gatekeeper\/custom\/([0-9a-f]{64})\/([a-zA-Z0-9_-]{32,128})\/?$/;
+const CONNECT_PATH = /^\/gatekeeper\/collections\/([0-9a-f]{64})\/([a-zA-Z0-9_-]{32,128})\/?$/;
 
 const htmlHeaders = {
   "content-type": "text/html; charset=utf-8",
