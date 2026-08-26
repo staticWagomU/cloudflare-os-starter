@@ -1,5 +1,6 @@
 export type CollectionRole = "owner" | "editor" | "reader";
 export type Freshness = "fresh" | "aging" | "stale" | "evergreen";
+export type FreshnessPolicy = "decay" | "no_decay";
 
 export type MockCollection = {
   id: string;
@@ -21,6 +22,7 @@ export type MockDocument = {
   content: string;
   sourceDate: string;
   tags: string[];
+  freshnessPolicy: FreshnessPolicy;
   freshness: Freshness;
   score: number;
   updatedAt: string;
@@ -106,6 +108,7 @@ Cloudflare Access経由の一部リクエストで401が発生していました
 8月27日 10:00に監視結果を確認し、問題がなければ対応完了とします。`,
     sourceDate: "2026-08-26",
     tags: ["認証", "Cloudflare", "対応中"],
+    freshnessPolicy: "decay",
     freshness: "fresh",
     score: 0.96,
     updatedAt: "12分前",
@@ -129,6 +132,7 @@ Cloudflare Access経由の一部リクエストで401が発生していました
 - テンプレート整理: 運用チーム`,
     sourceDate: "2026-08-26",
     tags: ["定例", "決定事項"],
+    freshnessPolicy: "decay",
     freshness: "fresh",
     score: 0.91,
     updatedAt: "34分前",
@@ -150,6 +154,7 @@ Cloudflare Access経由の一部リクエストで401が発生していました
 設定値そのものはこの文書に保存せず、Cloudflare Dashboardを正本とします。`,
     sourceDate: "2026-08-18",
     tags: ["認証", "手順", "Cloudflare"],
+    freshnessPolicy: "no_decay",
     freshness: "evergreen",
     score: 0.86,
     updatedAt: "8日前",
@@ -165,6 +170,7 @@ Cloudflare Access経由の一部リクエストで401が発生していました
 現在はカスタムドメインとCloudflare Accessを利用しているため、この文書のデプロイ先や認証設定をそのまま利用しないでください。`,
     sourceDate: "2026-06-02",
     tags: ["デプロイ", "旧手順"],
+    freshnessPolicy: "decay",
     freshness: "stale",
     score: 0.52,
     updatedAt: "2か月前",
@@ -178,6 +184,7 @@ Cloudflare Access経由の一部リクエストで401が発生していました
     content: "データ移行の検証は完了しました。残件は顧客側の最終確認と本番移行日の確定です。",
     sourceDate: "2026-08-25",
     tags: ["A社", "進行状況"],
+    freshnessPolicy: "decay",
     freshness: "fresh",
     score: 0.93,
     updatedAt: "昨日",
@@ -191,6 +198,7 @@ Cloudflare Access経由の一部リクエストで401が発生していました
     content: "アカウント発行、端末設定、開発環境、担当メンターとの面談を確認します。",
     sourceDate: "2026-07-10",
     tags: ["入社", "チェックリスト"],
+    freshnessPolicy: "no_decay",
     freshness: "evergreen",
     score: 0.88,
     updatedAt: "7月10日",
@@ -204,7 +212,8 @@ Cloudflare Access経由の一部リクエストで401が発生していました
     content: "Collection IDによる事前絞り込み後に、関連度と鮮度を使って再ランキングしました。",
     sourceDate: "2026-08-20",
     tags: ["検索", "Vectorize", "評価"],
-    freshness: "aging",
+    freshnessPolicy: "decay",
+    freshness: "fresh",
     score: 0.89,
     updatedAt: "6日前",
     author: "技術検証チーム",

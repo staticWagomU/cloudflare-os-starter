@@ -861,6 +861,13 @@ dt {
   min-width: 0;
 }
 
+.preview-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
 .preview-header h3 {
   overflow-wrap: anywhere;
   color: var(--text-color-kumo-strong);
@@ -987,6 +994,26 @@ dt {
   display: grid;
   gap: 15px;
   padding: 20px 22px;
+}
+
+.freshness-policy-control {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--color-kumo-line);
+  border-radius: 7px;
+  padding: 11px 12px;
+  background: var(--color-kumo-elevated);
+}
+
+.freshness-policy-control > div {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.freshness-policy-control p {
+  color: var(--text-color-kumo-subtle);
+  font-size: 10.5px;
+  line-height: 17px;
 }
 
 .file-drop-zone {
@@ -1189,10 +1216,6 @@ dt {
     overflow: auto;
   }
 
-  .sidebar-create {
-    display: none;
-  }
-
   .collection-workspace {
     width: 100%;
     min-height: 760px;
@@ -1269,10 +1292,6 @@ dt {
     font-size: 15px;
   }
 
-  .header-actions > :first-child {
-    display: none;
-  }
-
   .collection-list {
     grid-template-columns: minmax(230px, 1fr);
   }
@@ -1287,6 +1306,10 @@ dt {
 
   .preview-header {
     display: grid;
+  }
+
+  .preview-actions {
+    justify-content: space-between;
   }
 
   .file-drop-zone {

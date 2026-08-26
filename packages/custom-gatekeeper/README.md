@@ -25,6 +25,8 @@ Owners can change Collection settings and add documents. Editors can add documen
 
 Document classification uses document tags only; the mockup intentionally has no Collection tags or separate document type. Tags use an Enter-to-confirm chip input with suggestions from tags already used in the selected Collection. The add-document dialog also accepts a single `.txt` or `.md` file by drag and drop (up to 1 MB). A blank title falls back to the information date.
 
+Freshness is derived from the information date. Owners and editors can change the date and toggle time-based search-ranking decay from the add-document dialog or the selected document's settings. Disabling decay displays the document as `鮮度対象外`; readers cannot change it.
+
 ## Adapt it
 
 Change only the pieces your integration needs:

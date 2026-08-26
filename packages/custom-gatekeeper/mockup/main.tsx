@@ -5,6 +5,7 @@ import { Dialog } from "@cloudflare/kumo/components/dialog";
 import { Empty } from "@cloudflare/kumo/components/empty";
 import { Input, InputArea } from "@cloudflare/kumo/components/input";
 import { Select } from "@cloudflare/kumo/components/select";
+import { Switch } from "@cloudflare/kumo/components/switch";
 import { Tabs } from "@cloudflare/kumo/components/tabs";
 import {
   ArchiveBoxIcon,
@@ -28,6 +29,7 @@ import {
   initialCollections,
   initialDocuments,
   type Freshness,
+  type FreshnessPolicy,
   type MockCollection,
   type MockDocument,
 } from "./data";
@@ -47,7 +49,7 @@ const freshnessLabels: Record<Freshness, string> = {
   fresh: "新しい",
   aging: "更新を確認",
   stale: "古い情報",
-  evergreen: "常に有効",
+  evergreen: "鮮度対象外",
 };
 
 const freshnessVariants: Record<Freshness, "success" | "warning" | "error" | "info"> = {
@@ -77,6 +79,7 @@ function App() {
   const [freshnessFilter, setFreshnessFilter] = useState<FreshnessFilter>("recent");
   const [view, setView] = useState<View>("search");
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
+  const [documentSettingsOpen, setDocumentSettingsOpen] = useState(false);
   const [notice, setNotice] = useState("");
 
   const [collectionTitle, setCollectionTitle] = useState("");
@@ -87,10 +90,13 @@ function App() {
   const [documentBody, setDocumentBody] = useState("");
   const [documentTags, setDocumentTags] = useState("");
   const [documentDate, setDocumentDate] = useState("2026-08-26");
+  const [documentDecayEnabled, setDocumentDecayEnabled] = useState(true);
   const [documentFileStatus, setDocumentFileStatus] = useState("");
   const [documentFileError, setDocumentFileError] = useState("");
   const [documentDropActive, setDocumentDropActive] = useState(false);
   const documentFileInput = useRef<HTMLInputElement>(null);
+  const [settingsDocumentDate, setSettingsDocumentDate] = useState("");
+  const [settingsDecayEnabled, setSettingsDecayEnabled] = useState(true);
 
   const selectedCollection = collections.find(collection => collection.id === selectedCollectionId) ?? collections[0] ?? null;
   const collectionDocuments = useMemo(
@@ -226,7 +232,8 @@ function App() {
       content: body,
       sourceDate: documentDate,
       tags,
-      freshness: "fresh",
+      freshnessPolicy: documentDecayEnabled ? "decay" : "no_decay",
+      freshness: calculateFreshness(documentDate, documentDecayEnabled ? "decay" : "no_decay"),
       score: 1,
       updatedAt: "たった今",
       author: "自分",
@@ -239,11 +246,35 @@ function App() {
     setDocumentTitle("");
     setDocumentBody("");
     setDocumentTags("");
+    setDocumentDecayEnabled(true);
     setDocumentFileStatus("");
     setDocumentFileError("");
     setDocumentDialogOpen(false);
     setView("documents");
     setNotice(`「${title}」を追加しました。`);
+  };
+
+  const openDocumentSettings = () => {
+    if (!selectedDocument || !canAddDocuments) return;
+    setSettingsDocumentDate(selectedDocument.sourceDate);
+    setSettingsDecayEnabled(selectedDocument.freshnessPolicy === "decay");
+    setDocumentSettingsOpen(true);
+  };
+
+  const saveDocumentSettings = () => {
+    if (!selectedDocument || !canAddDocuments || !settingsDocumentDate) return;
+    const freshnessPolicy: FreshnessPolicy = settingsDecayEnabled ? "decay" : "no_decay";
+    setDocuments(current => current.map(document => document.id === selectedDocument.id
+      ? {
+          ...document,
+          sourceDate: settingsDocumentDate,
+          freshnessPolicy,
+          freshness: calculateFreshness(settingsDocumentDate, freshnessPolicy),
+          updatedAt: "たった今",
+        }
+      : document));
+    setDocumentSettingsOpen(false);
+    setNotice(`「${selectedDocument.title}」の鮮度設定を更新しました。`);
   };
 
   const loadDocumentFile = async (file?: File) => {
@@ -321,15 +352,6 @@ function App() {
           <Badge variant="beta">UIモック</Badge>
         </div>
         <div className="header-actions">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            shape="square"
-            title="コレクションを作成"
-            icon={<PlusIcon size={16} />}
-            onClick={() => setPage("create")}
-          />
           <Button
             type="button"
             variant="primary"
@@ -528,9 +550,21 @@ function App() {
                     <div>
                       <h3 id="preview-title">{selectedDocument.title}</h3>
                     </div>
-                    <Badge variant={freshnessVariants[selectedDocument.freshness]} appearance="dot">
-                      {freshnessLabels[selectedDocument.freshness]}
-                    </Badge>
+                    <div className="preview-actions">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        icon={<GearSixIcon size={14} />}
+                        disabled={!canAddDocuments}
+                        onClick={openDocumentSettings}
+                      >
+                        文書設定
+                      </Button>
+                      <Badge variant={freshnessVariants[selectedDocument.freshness]} appearance="dot">
+                        {freshnessLabels[selectedDocument.freshness]}
+                      </Badge>
+                    </div>
                   </header>
                   <div className="preview-byline">
                     <span>{selectedDocument.author}</span>
@@ -600,6 +634,7 @@ function App() {
             {documentFileError && <p className="file-drop-error" role="alert">{documentFileError}</p>}
             <Input label="タイトル" description="空欄の場合は情報の日付を使用します。" placeholder="文書のタイトル（任意）" value={documentTitle} onChange={event => setDocumentTitle(event.target.value)} />
             <Input label="情報の日付" type="date" value={documentDate} onChange={event => setDocumentDate(event.target.value)} />
+            <FreshnessPolicyControl checked={documentDecayEnabled} onCheckedChange={setDocumentDecayEnabled} />
             <TokenInput
               kind="tag"
               label="タグ"
@@ -614,6 +649,30 @@ function App() {
           <div className="dialog-actions">
             <Button type="button" variant="secondary" onClick={() => setDocumentDialogOpen(false)}>キャンセル</Button>
             <Button type="button" variant="primary" disabled={!documentBody.trim()} onClick={addDocument}>追加</Button>
+          </div>
+        </Dialog>
+      </Dialog.Root>
+
+      <Dialog.Root open={documentSettingsOpen} onOpenChange={setDocumentSettingsOpen}>
+        <Dialog className="mock-dialog" size="base">
+          <DialogHeader
+            title="文書設定"
+            description={selectedDocument?.title ?? "文書"}
+            onClose={() => setDocumentSettingsOpen(false)}
+          />
+          <div className="dialog-fields">
+            <Input
+              label="情報の日付"
+              type="date"
+              required
+              value={settingsDocumentDate}
+              onChange={event => setSettingsDocumentDate(event.target.value)}
+            />
+            <FreshnessPolicyControl checked={settingsDecayEnabled} onCheckedChange={setSettingsDecayEnabled} />
+          </div>
+          <div className="dialog-actions">
+            <Button type="button" variant="secondary" onClick={() => setDocumentSettingsOpen(false)}>キャンセル</Button>
+            <Button type="button" variant="primary" disabled={!settingsDocumentDate} onClick={saveDocumentSettings}>変更を保存</Button>
           </div>
         </Dialog>
       </Dialog.Root>
@@ -751,6 +810,27 @@ function DialogHeader({ title, description, onClose }: { title: string; descript
       </div>
       <Button type="button" variant="ghost" shape="square" size="sm" title="閉じる" icon={<XIcon size={16} />} onClick={onClose} />
     </header>
+  );
+}
+
+function FreshnessPolicyControl({
+  checked,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="freshness-policy-control">
+      <Switch
+        controlFirst={false}
+        label="時間経過に応じて検索順位を下げる"
+        labelTooltip="情報の日付から30日を超えると更新確認、90日を超えると古い情報として扱います。"
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+      />
+      <p>{checked ? "オン（標準）: 情報の日付をもとに鮮度を自動判定します。" : "オフ: 日付による順位低下を適用せず、「鮮度対象外」と表示します。"}</p>
+    </div>
   );
 }
 
@@ -902,6 +982,17 @@ function formatCurrentDateTime(): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date());
+}
+
+function calculateFreshness(sourceDate: string, policy: FreshnessPolicy): Freshness {
+  if (policy === "no_decay") return "evergreen";
+  const sourceTime = new Date(`${sourceDate}T00:00:00+09:00`).getTime();
+  const referenceTime = new Date("2026-08-26T00:00:00+09:00").getTime();
+  if (!Number.isFinite(sourceTime)) return "fresh";
+  const ageInDays = Math.max(0, Math.floor((referenceTime - sourceTime) / 86_400_000));
+  if (ageInDays <= 30) return "fresh";
+  if (ageInDays <= 90) return "aging";
+  return "stale";
 }
 
 function countMembers(readers: string, editors: string): number {
