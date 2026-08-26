@@ -1,13 +1,11 @@
 export type CollectionRole = "owner" | "editor" | "reader";
 export type Freshness = "fresh" | "aging" | "stale" | "evergreen";
-export type SourceType = "meeting" | "incident" | "note" | "transcript" | "employee" | "other";
 
 export type MockCollection = {
   id: string;
   title: string;
   description: string;
   role: CollectionRole;
-  tags: string[];
   readers: string[];
   editors: string[];
   documentCount: number;
@@ -21,7 +19,6 @@ export type MockDocument = {
   title: string;
   excerpt: string;
   content: string;
-  sourceType: SourceType;
   sourceDate: string;
   tags: string[];
   freshness: Freshness;
@@ -36,7 +33,6 @@ export const initialCollections: MockCollection[] = [
     title: "プロダクト運用",
     description: "障害対応、運用手順、週次ミーティングの記録",
     role: "owner",
-    tags: ["運用", "障害対応"],
     readers: ["support@example.com", "sales@example.com", "qa@example.com", "viewer@example.com"],
     editors: ["ops@example.com", "developer@example.com"],
     documentCount: 18,
@@ -48,7 +44,6 @@ export const initialCollections: MockCollection[] = [
     title: "顧客プロジェクト",
     description: "プロジェクトごとの決定事項と進行状況",
     role: "editor",
-    tags: ["顧客", "進行管理"],
     readers: ["project-viewers@example.com"],
     editors: ["project-editors@example.com"],
     documentCount: 31,
@@ -60,7 +55,6 @@ export const initialCollections: MockCollection[] = [
     title: "採用・オンボーディング",
     description: "採用面談、入社準備、オンボーディング資料",
     role: "reader",
-    tags: ["採用", "人事"],
     readers: ["members@example.com"],
     editors: ["people-ops@example.com"],
     documentCount: 24,
@@ -72,7 +66,6 @@ export const initialCollections: MockCollection[] = [
     title: "リサーチ資料",
     description: "市場調査、技術検証、参考資料の要約",
     role: "editor",
-    tags: ["調査", "技術"],
     readers: ["research-viewers@example.com"],
     editors: ["researchers@example.com"],
     documentCount: 42,
@@ -84,7 +77,6 @@ export const initialCollections: MockCollection[] = [
     title: "プロジェクト準備",
     description: "これから文書を追加する新しいコレクション",
     role: "owner",
-    tags: ["準備中"],
     readers: [],
     editors: [],
     documentCount: 0,
@@ -112,7 +104,6 @@ Cloudflare Access経由の一部リクエストで401が発生していました
 ## 次の確認
 
 8月27日 10:00に監視結果を確認し、問題がなければ対応完了とします。`,
-    sourceType: "incident",
     sourceDate: "2026-08-26",
     tags: ["認証", "Cloudflare", "対応中"],
     freshness: "fresh",
@@ -136,7 +127,6 @@ Cloudflare Access経由の一部リクエストで401が発生していました
 - UIモックアップ: 林
 - 権限テスト: 開発チーム
 - テンプレート整理: 運用チーム`,
-    sourceType: "meeting",
     sourceDate: "2026-08-26",
     tags: ["定例", "決定事項"],
     freshness: "fresh",
@@ -158,7 +148,6 @@ Cloudflare Access経由の一部リクエストで401が発生していました
 5. 対象外ユーザーが拒否されることを確認
 
 設定値そのものはこの文書に保存せず、Cloudflare Dashboardを正本とします。`,
-    sourceType: "note",
     sourceDate: "2026-08-18",
     tags: ["認証", "手順", "Cloudflare"],
     freshness: "evergreen",
@@ -174,7 +163,6 @@ Cloudflare Access経由の一部リクエストで401が発生していました
     content: `この手順は初期検証用です。
 
 現在はカスタムドメインとCloudflare Accessを利用しているため、この文書のデプロイ先や認証設定をそのまま利用しないでください。`,
-    sourceType: "note",
     sourceDate: "2026-06-02",
     tags: ["デプロイ", "旧手順"],
     freshness: "stale",
@@ -188,7 +176,6 @@ Cloudflare Access経由の一部リクエストで401が発生していました
     title: "A社プロジェクト 週次状況",
     excerpt: "データ移行の検証は完了。顧客確認を待って本番移行日を確定します。",
     content: "データ移行の検証は完了しました。残件は顧客側の最終確認と本番移行日の確定です。",
-    sourceType: "meeting",
     sourceDate: "2026-08-25",
     tags: ["A社", "進行状況"],
     freshness: "fresh",
@@ -202,7 +189,6 @@ Cloudflare Access経由の一部リクエストで401が発生していました
     title: "エンジニア入社初週チェックリスト",
     excerpt: "アカウント発行、端末設定、開発環境、担当メンターとの面談を初週に確認します。",
     content: "アカウント発行、端末設定、開発環境、担当メンターとの面談を確認します。",
-    sourceType: "employee",
     sourceDate: "2026-07-10",
     tags: ["入社", "チェックリスト"],
     freshness: "evergreen",
@@ -216,7 +202,6 @@ Cloudflare Access経由の一部リクエストで401が発生していました
     title: "ベクトル検索の評価メモ",
     excerpt: "メタデータによる事前絞り込みと、日付を考慮した再ランキングを組み合わせた評価結果です。",
     content: "Collection IDによる事前絞り込み後に、関連度と鮮度を使って再ランキングしました。",
-    sourceType: "note",
     sourceDate: "2026-08-20",
     tags: ["検索", "Vectorize", "評価"],
     freshness: "aging",

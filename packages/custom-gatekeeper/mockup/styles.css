@@ -152,6 +152,163 @@ dt {
   gap: 16px;
 }
 
+.create-fields :is(input, textarea):disabled {
+  border-color: var(--color-kumo-hairline);
+  background: var(--color-kumo-tint);
+  color: var(--text-color-kumo-inactive);
+  cursor: not-allowed;
+  opacity: 0.78;
+}
+
+.create-fields :is(input, textarea):disabled::placeholder {
+  color: var(--text-color-kumo-inactive);
+}
+
+.token-field {
+  position: relative;
+  display: grid;
+  gap: 6px;
+}
+
+.token-label {
+  color: var(--text-color-kumo-strong);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.token-control {
+  display: flex;
+  min-height: 38px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--color-kumo-line);
+  border-radius: 7px;
+  padding: 5px 8px;
+  background: var(--color-kumo-control);
+  cursor: text;
+}
+
+.token-control:focus-within {
+  border-color: var(--color-kumo-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-kumo-focus) 18%, transparent);
+}
+
+.token-chip {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--color-kumo-line);
+  border-radius: 5px;
+  padding: 2px 4px 2px 7px;
+  background: var(--color-kumo-tint);
+  color: var(--text-color-kumo-default);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.token-chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.token-chip button {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  padding: 0;
+  background: transparent;
+  color: var(--text-color-kumo-subtle);
+  cursor: pointer;
+}
+
+.token-chip button:hover {
+  background: var(--color-kumo-fill-hover);
+  color: var(--text-color-kumo-strong);
+}
+
+.token-control input {
+  min-width: min(210px, 100%);
+  flex: 1;
+  border: 0;
+  outline: 0;
+  padding: 2px 0;
+  background: transparent;
+  color: var(--text-color-kumo-default);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.token-control input::placeholder {
+  color: var(--text-color-kumo-placeholder);
+}
+
+.token-description,
+.token-error {
+  color: var(--text-color-kumo-subtle);
+  font-size: 10.5px;
+  line-height: 16px;
+}
+
+.token-error {
+  color: var(--text-color-kumo-danger);
+}
+
+.token-field.is-disabled .token-control {
+  border-color: var(--color-kumo-hairline);
+  background: var(--color-kumo-tint);
+  cursor: not-allowed;
+  opacity: 0.78;
+}
+
+.token-field.is-disabled .token-chip,
+.token-field.is-disabled .token-chip button,
+.token-field.is-disabled .token-control input {
+  color: var(--text-color-kumo-inactive);
+  cursor: not-allowed;
+}
+
+.token-suggestions {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% - 19px);
+  right: 0;
+  left: 0;
+  display: grid;
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--color-kumo-line);
+  border-radius: 7px;
+  padding: 4px;
+  background: var(--color-kumo-base);
+  box-shadow: 0 8px 20px var(--color-kumo-shadow-drop);
+}
+
+.token-suggestions button {
+  border: 0;
+  border-radius: 5px;
+  padding: 7px 9px;
+  background: transparent;
+  color: var(--text-color-kumo-default);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.token-suggestions button:hover,
+.token-suggestions button:focus-visible {
+  outline: 0;
+  background: var(--color-kumo-tint);
+  color: var(--text-color-kumo-strong);
+}
+
 .create-page-actions {
   display: flex;
   justify-content: flex-end;
@@ -704,13 +861,6 @@ dt {
   min-width: 0;
 }
 
-.preview-label {
-  margin-bottom: 5px;
-  color: var(--text-color-kumo-link);
-  font-size: 10px;
-  font-weight: 700;
-}
-
 .preview-header h3 {
   overflow-wrap: anywhere;
   color: var(--text-color-kumo-strong);
@@ -839,10 +989,66 @@ dt {
   padding: 20px 22px;
 }
 
-.dialog-grid {
+.file-drop-zone {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  min-height: 92px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
   gap: 12px;
+  border: 1px dashed var(--color-kumo-interact);
+  border-radius: 7px;
+  padding: 14px;
+  background: var(--color-kumo-elevated);
+  color: var(--text-color-kumo-subtle);
+}
+
+.file-drop-zone.is-active {
+  border-color: var(--color-kumo-focus);
+  background: var(--color-kumo-tint);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-kumo-focus) 18%, transparent);
+}
+
+.file-drop-zone.has-error {
+  border-color: var(--color-kumo-danger);
+}
+
+.file-drop-zone div,
+.file-drop-zone strong,
+.file-drop-zone span {
+  display: block;
+  min-width: 0;
+}
+
+.file-drop-zone strong {
+  color: var(--text-color-kumo-default);
+  font-size: 12px;
+  line-height: 19px;
+}
+
+.file-drop-zone span {
+  margin-top: 2px;
+  font-size: 10.5px;
+  line-height: 17px;
+}
+
+.file-drop-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.file-drop-status,
+.file-drop-error {
+  margin-top: -8px;
+  color: var(--text-color-kumo-success);
+  font-size: 10.5px;
+  line-height: 16px;
+}
+
+.file-drop-error {
+  color: var(--text-color-kumo-danger);
 }
 
 .permission-preview {
@@ -1083,8 +1289,13 @@ dt {
     display: grid;
   }
 
-  .dialog-grid {
-    grid-template-columns: 1fr;
+  .file-drop-zone {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .file-drop-zone > button {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 
   .create-collection-page {

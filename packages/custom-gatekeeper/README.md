@@ -21,6 +21,10 @@ pnpm run mockup:dev --host 127.0.0.1 --port 4174
 
 Each Collection header links to a dedicated settings page for basic information and access control. For non-owners, every editable field is disabled and the page is read-only.
 
+Owners can change Collection settings and add documents. Editors can add documents, while readers can only search and read; the add-document action is disabled for readers.
+
+Document classification uses document tags only; the mockup intentionally has no Collection tags or separate document type. Tags use an Enter-to-confirm chip input with suggestions from tags already used in the selected Collection. The add-document dialog also accepts a single `.txt` or `.md` file by drag and drop (up to 1 MB). A blank title falls back to the information date.
+
 ## Adapt it
 
 Change only the pieces your integration needs:

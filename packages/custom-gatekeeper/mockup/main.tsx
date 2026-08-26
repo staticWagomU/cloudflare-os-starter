@@ -18,10 +18,11 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
   TagIcon,
+  UploadSimpleIcon,
   UsersThreeIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   initialCollections,
@@ -29,7 +30,6 @@ import {
   type Freshness,
   type MockCollection,
   type MockDocument,
-  type SourceType,
 } from "./data";
 import "./styles.css";
 
@@ -41,15 +41,6 @@ const roleLabels: Record<MockCollection["role"], string> = {
   owner: "所有者",
   editor: "編集者",
   reader: "閲覧者",
-};
-
-const sourceLabels: Record<SourceType, string> = {
-  meeting: "会議",
-  incident: "障害・インシデント",
-  note: "ノート",
-  transcript: "文字起こし",
-  employee: "人物情報",
-  other: "その他",
 };
 
 const freshnessLabels: Record<Freshness, string> = {
@@ -90,14 +81,16 @@ function App() {
 
   const [collectionTitle, setCollectionTitle] = useState("");
   const [collectionDescription, setCollectionDescription] = useState("");
-  const [collectionTagsInput, setCollectionTagsInput] = useState("");
   const [collectionReaders, setCollectionReaders] = useState("");
   const [collectionEditors, setCollectionEditors] = useState("");
   const [documentTitle, setDocumentTitle] = useState("");
   const [documentBody, setDocumentBody] = useState("");
   const [documentTags, setDocumentTags] = useState("");
-  const [documentSource, setDocumentSource] = useState<SourceType>("note");
   const [documentDate, setDocumentDate] = useState("2026-08-26");
+  const [documentFileStatus, setDocumentFileStatus] = useState("");
+  const [documentFileError, setDocumentFileError] = useState("");
+  const [documentDropActive, setDocumentDropActive] = useState(false);
+  const documentFileInput = useRef<HTMLInputElement>(null);
 
   const selectedCollection = collections.find(collection => collection.id === selectedCollectionId) ?? collections[0] ?? null;
   const collectionDocuments = useMemo(
@@ -108,10 +101,22 @@ function App() {
     () => [...new Set(collectionDocuments.flatMap(document => document.tags))].toSorted((a, b) => a.localeCompare(b, "ja")),
     [collectionDocuments],
   );
+  const documentTagSuggestions = useMemo(
+    () => [...new Set([
+      "会議",
+      "障害",
+      "決定事項",
+      "文字起こし",
+      "手順",
+      "人物情報",
+      ...collectionTags,
+    ])].toSorted((a, b) => a.localeCompare(b, "ja")),
+    [collectionTags],
+  );
   const visibleCollections = collections.filter(collection => {
     const normalized = collectionQuery.trim().toLocaleLowerCase("ja");
     if (!normalized) return true;
-    return [collection.title, collection.description, ...collection.tags]
+    return [collection.title, collection.description]
       .join(" ")
       .toLocaleLowerCase("ja")
       .includes(normalized);
@@ -136,6 +141,7 @@ function App() {
   const selectedDocument = visibleDocuments.find(document => document.id === selectedDocumentId)
     ?? visibleDocuments[0]
     ?? null;
+  const canAddDocuments = selectedCollection?.role === "owner" || selectedCollection?.role === "editor";
 
   const selectCollection = (collectionId: string) => {
     setSelectedCollectionId(collectionId);
@@ -160,7 +166,6 @@ function App() {
       title,
       description: collectionDescription.trim() || "説明なし",
       role: "owner",
-      tags: splitList(collectionTagsInput),
       readers: splitList(collectionReaders),
       editors: splitList(collectionEditors),
       documentCount: 0,
@@ -171,7 +176,6 @@ function App() {
     selectCollection(id);
     setCollectionTitle("");
     setCollectionDescription("");
-    setCollectionTagsInput("");
     setCollectionReaders("");
     setCollectionEditors("");
     setPage("library");
@@ -182,7 +186,6 @@ function App() {
     if (!selectedCollection) return;
     setCollectionTitle(selectedCollection.title);
     setCollectionDescription(selectedCollection.description);
-    setCollectionTagsInput(selectedCollection.tags.join(", "));
     setCollectionReaders(selectedCollection.readers.join(", "));
     setCollectionEditors(selectedCollection.editors.join(", "));
     setPage("settings");
@@ -199,7 +202,6 @@ function App() {
           ...collection,
           title,
           description: collectionDescription.trim() || "説明なし",
-          tags: splitList(collectionTagsInput),
           readers,
           editors,
           memberCount: countMembers(collectionReaders, collectionEditors),
@@ -211,9 +213,9 @@ function App() {
   };
 
   const addDocument = () => {
-    const title = documentTitle.trim();
+    const title = documentTitle.trim() || documentDate || formatCurrentDateTime();
     const body = documentBody.trim();
-    if (!selectedCollection || !title || !body) return;
+    if (!selectedCollection || !canAddDocuments || !body) return;
     const id = `document-${Date.now()}`;
     const tags = splitList(documentTags);
     const next: MockDocument = {
@@ -222,7 +224,6 @@ function App() {
       title,
       excerpt: body.replaceAll("\n", " ").slice(0, 110),
       content: body,
-      sourceType: documentSource,
       sourceDate: documentDate,
       tags,
       freshness: "fresh",
@@ -238,9 +239,33 @@ function App() {
     setDocumentTitle("");
     setDocumentBody("");
     setDocumentTags("");
+    setDocumentFileStatus("");
+    setDocumentFileError("");
     setDocumentDialogOpen(false);
     setView("documents");
     setNotice(`「${title}」を追加しました。`);
+  };
+
+  const loadDocumentFile = async (file?: File) => {
+    if (!file) return;
+    setDocumentFileError("");
+    setDocumentFileStatus("");
+    if (!/\.(?:md|txt)$/i.test(file.name)) {
+      setDocumentFileError(".txt または .md ファイルを選択してください。");
+      return;
+    }
+    if (file.size > 1_000_000) {
+      setDocumentFileError("ファイルサイズは1MB以下にしてください。");
+      return;
+    }
+    const content = await file.text();
+    if (!content.trim()) {
+      setDocumentFileError("空のファイルは読み込めません。");
+      return;
+    }
+    setDocumentTitle(file.name.replace(/\.(?:md|txt)$/i, ""));
+    setDocumentBody(content);
+    setDocumentFileStatus(`${file.name} を読み込みました。`);
   };
 
   if (page === "create") {
@@ -251,12 +276,10 @@ function App() {
         canEdit
         title={collectionTitle}
         description={collectionDescription}
-        tags={collectionTagsInput}
         readers={collectionReaders}
         editors={collectionEditors}
         onTitleChange={setCollectionTitle}
         onDescriptionChange={setCollectionDescription}
-        onTagsChange={setCollectionTagsInput}
         onReadersChange={setCollectionReaders}
         onEditorsChange={setCollectionEditors}
         onCancel={() => setPage(collections.length ? "library" : "empty")}
@@ -273,12 +296,10 @@ function App() {
         canEdit={selectedCollection.role === "owner"}
         title={collectionTitle}
         description={collectionDescription}
-        tags={collectionTagsInput}
         readers={collectionReaders}
         editors={collectionEditors}
         onTitleChange={setCollectionTitle}
         onDescriptionChange={setCollectionDescription}
-        onTagsChange={setCollectionTagsInput}
         onReadersChange={setCollectionReaders}
         onEditorsChange={setCollectionEditors}
         onCancel={() => setPage("library")}
@@ -314,7 +335,11 @@ function App() {
             variant="primary"
             size="sm"
             icon={<FileTextIcon size={16} />}
-            onClick={() => setDocumentDialogOpen(true)}
+            title={canAddDocuments ? "文書を追加" : "閲覧者は文書を追加できません"}
+            disabled={!canAddDocuments}
+            onClick={() => {
+              if (canAddDocuments) setDocumentDialogOpen(true);
+            }}
           >
             文書を追加
           </Button>
@@ -470,7 +495,6 @@ function App() {
                       </span>
                       <span className="document-excerpt">{document.excerpt}</span>
                       <span className="document-meta">
-                        <span><FileTextIcon size={13} />{sourceLabels[document.sourceType]}</span>
                         <span><CalendarBlankIcon size={13} />{document.sourceDate}</span>
                         <span><ClockIcon size={13} />{document.updatedAt}</span>
                       </span>
@@ -490,7 +514,7 @@ function App() {
                   description={collectionDocuments.length
                     ? "検索語または絞り込み条件を変更してください。"
                     : "このコレクションに最初の文書を追加します。"}
-                  contents={!collectionDocuments.length
+                  contents={!collectionDocuments.length && canAddDocuments
                     ? <Button type="button" variant="primary" size="sm" icon={<PlusIcon size={15} />} onClick={() => setDocumentDialogOpen(true)}>文書を追加</Button>
                     : undefined}
                 />
@@ -502,7 +526,6 @@ function App() {
                 <>
                   <header className="preview-header">
                     <div>
-                      <div className="preview-label">{sourceLabels[selectedDocument.sourceType]}</div>
                       <h3 id="preview-title">{selectedDocument.title}</h3>
                     </div>
                     <Badge variant={freshnessVariants[selectedDocument.freshness]} appearance="dot">
@@ -541,22 +564,56 @@ function App() {
         <Dialog className="mock-dialog document-dialog" size="lg">
           <DialogHeader title="文書を追加" description={selectedCollection.title} onClose={() => setDocumentDialogOpen(false)} />
           <div className="dialog-fields">
-            <Input label="タイトル" required placeholder="文書のタイトル" value={documentTitle} onChange={event => setDocumentTitle(event.target.value)} />
-            <div className="dialog-grid">
-              <Select
-                label="情報の種類"
-                value={documentSource}
-                onValueChange={value => setDocumentSource((value ?? "note") as SourceType)}
-                items={sourceLabels}
+            <div
+              className={`file-drop-zone${documentDropActive ? " is-active" : ""}${documentFileError ? " has-error" : ""}`}
+              onDragEnter={event => {
+                event.preventDefault();
+                setDocumentDropActive(true);
+              }}
+              onDragOver={event => event.preventDefault()}
+              onDragLeave={() => setDocumentDropActive(false)}
+              onDrop={event => {
+                event.preventDefault();
+                setDocumentDropActive(false);
+                void loadDocumentFile(event.dataTransfer.files[0]);
+              }}
+            >
+              <input
+                ref={documentFileInput}
+                className="file-drop-input"
+                type="file"
+                accept=".txt,.md,text/plain,text/markdown"
+                aria-label="文書ファイルを選択"
+                onChange={event => {
+                  void loadDocumentFile(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
               />
-              <Input label="情報の日付" type="date" value={documentDate} onChange={event => setDocumentDate(event.target.value)} />
+              <UploadSimpleIcon size={22} aria-hidden="true" />
+              <div>
+                <strong>.txt / .md をドロップ</strong>
+                <span>またはファイルを選択（最大1MB）</span>
+              </div>
+              <Button type="button" variant="secondary" size="sm" onClick={() => documentFileInput.current?.click()}>選択</Button>
             </div>
-            <Input label="タグ" description="カンマ区切り" placeholder="認証, 対応中" value={documentTags} onChange={event => setDocumentTags(event.target.value)} />
+            {documentFileStatus && <p className="file-drop-status" role="status">{documentFileStatus}</p>}
+            {documentFileError && <p className="file-drop-error" role="alert">{documentFileError}</p>}
+            <Input label="タイトル" description="空欄の場合は情報の日付を使用します。" placeholder="文書のタイトル（任意）" value={documentTitle} onChange={event => setDocumentTitle(event.target.value)} />
+            <Input label="情報の日付" type="date" value={documentDate} onChange={event => setDocumentDate(event.target.value)} />
+            <TokenInput
+              kind="tag"
+              label="タグ"
+              description="入力してEnterで確定。既存タグから候補を表示します。"
+              placeholder="例: 会議"
+              suggestions={documentTagSuggestions}
+              value={documentTags}
+              onChange={setDocumentTags}
+            />
             <InputArea label="本文" required rows={10} placeholder="保存する内容" value={documentBody} onChange={event => setDocumentBody(event.target.value)} />
           </div>
           <div className="dialog-actions">
             <Button type="button" variant="secondary" onClick={() => setDocumentDialogOpen(false)}>キャンセル</Button>
-            <Button type="button" variant="primary" disabled={!documentTitle.trim() || !documentBody.trim()} onClick={addDocument}>追加</Button>
+            <Button type="button" variant="primary" disabled={!documentBody.trim()} onClick={addDocument}>追加</Button>
           </div>
         </Dialog>
       </Dialog.Root>
@@ -592,12 +649,10 @@ function CollectionFormPage({
   canEdit,
   title,
   description,
-  tags,
   readers,
   editors,
   onTitleChange,
   onDescriptionChange,
-  onTagsChange,
   onReadersChange,
   onEditorsChange,
   onCancel,
@@ -608,12 +663,10 @@ function CollectionFormPage({
   canEdit: boolean;
   title: string;
   description: string;
-  tags: string;
   readers: string;
   editors: string;
   onTitleChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
-  onTagsChange: (value: string) => void;
   onReadersChange: (value: string) => void;
   onEditorsChange: (value: string) => void;
   onCancel: () => void;
@@ -648,17 +701,19 @@ function CollectionFormPage({
             <div className="create-fields">
               <Input disabled={!canEdit} label="名前" required placeholder="例: プロダクト運用" value={title} onChange={event => onTitleChange(event.target.value)} />
               <InputArea disabled={!canEdit} label="説明" rows={3} placeholder="このコレクションで扱う情報" value={description} onChange={event => onDescriptionChange(event.target.value)} />
-              <Input disabled={!canEdit} label="タグ" description="カンマ区切り" placeholder="運用, 障害対応" value={tags} onChange={event => onTagsChange(event.target.value)} />
             </div>
           </section>
           <section className="create-section" aria-labelledby="collection-access-heading">
             <div className="create-section-heading">
               <span>2</span>
-              <div><h3 id="collection-access-heading">アクセス権</h3><p>自分は所有者として登録されます。</p></div>
+              <div>
+                <h3 id="collection-access-heading">アクセス権</h3>
+                <p>{isSettings ? "コレクションの共有範囲です。" : "自分は所有者として登録されます。"}</p>
+              </div>
             </div>
             <div className="create-fields">
-              <Input disabled={!canEdit} label="閲覧者" description="メールアドレスをカンマ区切り" placeholder="reader@example.com" value={readers} onChange={event => onReadersChange(event.target.value)} />
-              <Input disabled={!canEdit} label="編集者" description="メールアドレスをカンマ区切り" placeholder="editor@example.com" value={editors} onChange={event => onEditorsChange(event.target.value)} />
+              <TokenInput kind="email" disabled={!canEdit} label="閲覧者" description="メールアドレスを入力してEnterで確定" placeholder="reader@example.com" value={readers} onChange={onReadersChange} />
+              <TokenInput kind="email" disabled={!canEdit} label="編集者" description="メールアドレスを入力してEnterで確定" placeholder="editor@example.com" value={editors} onChange={onEditorsChange} />
               <div className="permission-preview">
                 <UsersThreeIcon size={18} />
                 <div>
@@ -671,7 +726,7 @@ function CollectionFormPage({
         </div>
         <footer className="create-page-actions">
           {canCancel && <Button type="button" variant="secondary" onClick={onCancel}>{isSettings ? "戻る" : "キャンセル"}</Button>}
-          {canEdit && <Button type="button" variant="primary" disabled={!title.trim()} onClick={onCreate}>{isSettings ? "変更を保存" : "作成"}</Button>}
+          <Button type="button" variant="primary" disabled={!canEdit || !title.trim()} onClick={onCreate}>{isSettings ? "変更を保存" : "作成"}</Button>
         </footer>
       </section>
     </main>
@@ -699,6 +754,133 @@ function DialogHeader({ title, description, onClose }: { title: string; descript
   );
 }
 
+function TokenInput({
+  kind,
+  disabled = false,
+  label,
+  description,
+  placeholder,
+  suggestions = [],
+  value,
+  onChange,
+}: {
+  kind: "email" | "tag";
+  disabled?: boolean;
+  label: string;
+  description: string;
+  placeholder: string;
+  suggestions?: string[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const inputId = useId();
+  const descriptionId = `${inputId}-description`;
+  const errorId = `${inputId}-error`;
+  const suggestionsId = `${inputId}-suggestions`;
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState("");
+  const [focused, setFocused] = useState(false);
+  const tokens = splitList(value);
+  const normalizedDraft = draft.trim().toLocaleLowerCase("ja");
+  const visibleSuggestions = kind === "tag" && focused && !disabled
+    ? suggestions
+        .filter(suggestion => !tokens.some(token => token.toLocaleLowerCase("ja") === suggestion.toLocaleLowerCase("ja")))
+        .filter(suggestion => !normalizedDraft || suggestion.toLocaleLowerCase("ja").includes(normalizedDraft))
+        .slice(0, 6)
+    : [];
+
+  const commitDraft = (candidate = draft) => {
+    const token = candidate.trim().replace(/,$/, "");
+    if (!token || disabled) return;
+    if (kind === "email" && !isEmail(token)) {
+      setError("メールアドレスの形式を確認してください。");
+      return;
+    }
+    if (!tokens.some(current => current.toLocaleLowerCase("ja") === token.toLocaleLowerCase("ja"))) {
+      onChange([...tokens, token].join(", "));
+    }
+    setDraft("");
+    setError("");
+  };
+
+  const removeToken = (token: string) => {
+    if (disabled) return;
+    onChange(tokens.filter(current => current !== token).join(", "));
+    inputRef.current?.focus();
+  };
+
+  return (
+    <div className={`token-field${disabled ? " is-disabled" : ""}`}>
+      <label className="token-label" htmlFor={inputId}>{label}</label>
+      <div className="token-control" onClick={() => inputRef.current?.focus()}>
+        {tokens.map(token => (
+          <span className="token-chip" key={token}>
+            <span>{token}</span>
+            <button
+              type="button"
+              aria-label={`${token}を削除`}
+              disabled={disabled}
+              onClick={() => removeToken(token)}
+            >
+              <XIcon size={12} />
+            </button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          id={inputId}
+          type={kind === "email" ? "email" : "text"}
+          aria-describedby={`${descriptionId}${error ? ` ${errorId}` : ""}`}
+          aria-invalid={Boolean(error)}
+          aria-autocomplete={kind === "tag" ? "list" : undefined}
+          aria-controls={visibleSuggestions.length ? suggestionsId : undefined}
+          aria-expanded={kind === "tag" ? visibleSuggestions.length > 0 : undefined}
+          disabled={disabled}
+          placeholder={tokens.length ? "" : placeholder}
+          value={draft}
+          onBlur={() => {
+            commitDraft();
+            setFocused(false);
+          }}
+          onChange={event => {
+            setDraft(event.target.value);
+            setError("");
+          }}
+          onFocus={() => setFocused(true)}
+          onKeyDown={event => {
+            if (event.key === "Enter" || event.key === ",") {
+              event.preventDefault();
+              commitDraft();
+            } else if (event.key === "Backspace" && !draft && tokens.length) {
+              event.preventDefault();
+              removeToken(tokens.at(-1) ?? "");
+            }
+          }}
+        />
+      </div>
+      {visibleSuggestions.length > 0 && (
+        <div className="token-suggestions" id={suggestionsId} role="listbox" aria-label="タグ候補">
+          {visibleSuggestions.map(suggestion => (
+            <button
+              type="button"
+              role="option"
+              aria-selected="false"
+              key={suggestion}
+              onMouseDown={event => event.preventDefault()}
+              onClick={() => commitDraft(suggestion)}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      )}
+      <span className="token-description" id={descriptionId}>{description}</span>
+      {error && <span className="token-error" id={errorId} role="alert">{error}</span>}
+    </div>
+  );
+}
+
 function renderLine(line: string, index: number) {
   if (line.startsWith("## ")) return <h4 key={index}>{line.slice(3)}</h4>;
   if (line.startsWith("- ")) return <p className="bullet-line" key={index}>{line.slice(2)}</p>;
@@ -709,6 +891,17 @@ function renderLine(line: string, index: number) {
 
 function splitList(value: string): string[] {
   return value.split(",").map(item => item.trim()).filter(Boolean);
+}
+
+function isEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function formatCurrentDateTime(): string {
+  return new Intl.DateTimeFormat("ja-JP", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date());
 }
 
 function countMembers(readers: string, editors: string): number {
