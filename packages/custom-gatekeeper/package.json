@@ -5,7 +5,9 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "types:check": "tsc --noEmit && tsc -p tsconfig.app.json",
+    "mockup:build": "vite build --config vite.mockup.config.ts",
+    "mockup:dev": "vite --config vite.mockup.config.ts",
+    "types:check": "tsc --noEmit && tsc -p tsconfig.app.json && tsc -p tsconfig.mockup.json",
     "test:run": "vitest run"
   },
   "dependencies": {
