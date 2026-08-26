@@ -17,6 +17,8 @@ import type {
 } from "./deployment-config.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const trackedDeploymentName = "deployment.jsonc";
+const localDeploymentName = "deployment.local.jsonc";
 // One deployment per checkout; use separate worktrees for concurrent deploys.
 const generatedName = "wrangler.prod.jsonc";
 const packageDirs = {
@@ -710,6 +712,14 @@ async function readDeployment(path: string): Promise<DeploymentConfig> {
   }
 }
 
+/**
+ * Keep account-specific deployment metadata out of public forks without making the active file
+ * implicit: the ignored local file wins only when the operator deliberately creates it.
+ */
+export function deploymentConfigName(localExists = existsSync(join(root, localDeploymentName))): string {
+  return localExists ? localDeploymentName : trackedDeploymentName;
+}
+
 function runCommand(
   command: string,
   argv: string[],
@@ -784,7 +794,11 @@ function reportAiGateway(config: DeploymentConfig): void {
 
 async function main(): Promise<void> {
   requireSubmodule();
-  const config = await readDeployment(join(root, "deployment.jsonc"));
+  const configName = deploymentConfigName();
+  if (configName === localDeploymentName) {
+    console.log(`Using ignored local deployment config: ${configName}`);
+  }
+  const config = await readDeployment(join(root, configName));
   const generated = generateConfigs(config, {
     router: await readJsonc(join(root, packageDirs.router, "wrangler.jsonc")),
     workshop: await readJsonc(join(root, packageDirs.workshop, "wrangler.jsonc")),
