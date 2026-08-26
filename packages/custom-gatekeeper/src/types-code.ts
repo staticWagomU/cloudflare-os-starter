@@ -61,13 +61,13 @@ export interface KnowledgeDocumentInput {
   tags?: string[];
 }
 
-/** Verification-mode collection search capability provided to the CloudflareOS agent. */
+/** Collection management capability provided to the CloudflareOS agent. */
 export interface CustomSession {
   /** Returns deployment diagnostics after recording an observation. */
   getDeploymentInfo(): Promise<CustomDeploymentInfo>;
-  /** Lists restricted knowledge collections readable by the current principal. */
+  /** Lists collections readable by the current principal. */
   listCollections(): Promise<KnowledgeCollectionSummary[]>;
-  /** Creates a restricted knowledge collection owned by the current principal. */
+  /** Creates a collection owned by the current principal. */
   createCollection(input: KnowledgeCollectionInput): Promise<KnowledgeCollectionSummary>;
   /** Searches readable documents. Falls back to keyword search when Vectorize is not configured. */
   search(query: string, options?: {
@@ -82,6 +82,22 @@ export interface CustomSession {
   readDocument(documentId: string): Promise<KnowledgeDocument | null>;
   /** Adds a document to a collection writable by the current principal. */
   addDocument(input: KnowledgeDocumentInput): Promise<KnowledgeDocument>;
+}
+
+/** Read-only capability scoped to one selected collection. */
+export interface KnowledgeCollectionSession {
+  /** Returns the selected collection if access is still available. */
+  getCollection(): Promise<KnowledgeCollectionSummary>;
+  /** Searches only documents in the selected collection. */
+  search(query: string, options?: {
+    tags?: string[];
+    from?: string;
+    to?: string;
+    freshness?: "prefer_recent" | "include_stale";
+    limit?: number;
+  }): Promise<KnowledgeSearchResult[]>;
+  /** Reads one document only when it belongs to the selected collection. */
+  readDocument(documentId: string): Promise<KnowledgeDocument | null>;
 }
 `;
 

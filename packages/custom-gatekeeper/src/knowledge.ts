@@ -44,6 +44,7 @@ type VectorizeBinding = {
   }>): Promise<unknown>;
   query(values: number[], options?: {
     topK?: number;
+    filter?: Record<string, unknown>;
   }): Promise<{
     matches?: Array<{
       id: string;
@@ -133,6 +134,30 @@ export class KnowledgeRepository {
       role: row.role,
       tags: await this.#tagsFor("collection_tags", "collection_id", row.id),
     })));
+  }
+
+  async getCollection(
+    principal: KnowledgePrincipal,
+    collectionId: string,
+  ): Promise<KnowledgeCollectionSummary | null> {
+    await this.#ensureSchema();
+    let row = await this.#db().prepare(`
+      select c.id, c.title, c.description, a.role
+      from collections c
+      join collection_acl a on a.collection_id = c.id
+      where c.id = ?
+        and c.archived_at is null
+        and a.principal_type = ?
+        and a.principal_id = ?
+    `).bind(collectionId, principal.type, principal.id).first<CollectionRow>();
+    if (!row) return null;
+    return {
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      role: row.role,
+      tags: await this.#tagsFor("collection_tags", "collection_id", row.id),
+    };
   }
 
   async createCollection(
@@ -240,8 +265,30 @@ export class KnowledgeRepository {
     principal: KnowledgePrincipal,
     documentId: string,
   ): Promise<KnowledgeDocument | null> {
+    return this.#readDocument(principal, documentId);
+  }
+
+  async readDocumentInCollection(
+    principal: KnowledgePrincipal,
+    documentId: string,
+    collectionId: string,
+  ): Promise<KnowledgeDocument | null> {
+    return this.#readDocument(principal, documentId, collectionId);
+  }
+
+  async #readDocument(
+    principal: KnowledgePrincipal,
+    documentId: string,
+    collectionId?: string,
+  ): Promise<KnowledgeDocument | null> {
     await this.#ensureSchema();
-    let row = await this.#db().prepare(`
+    let row = collectionId
+      ? await this.#db().prepare(`
+          select id, collection_id, title, source_type, source_date, freshness_policy, r2_key
+          from documents
+          where id = ? and collection_id = ? and deleted_at is null
+        `).bind(documentId, collectionId).first<DocumentRow>()
+      : await this.#db().prepare(`
       select id, collection_id, title, source_type, source_date, freshness_policy, r2_key
       from documents
       where id = ? and deleted_at is null
@@ -275,7 +322,7 @@ export class KnowledgeRepository {
     }
     if (readable.size === 0) return [];
 
-    let vectorScores = await this.#vectorScores(query, limit);
+    let vectorScores = await this.#vectorScores(query, limit, options.collectionId);
     let rows = await this.#db().prepare(`
       select id, collection_id, title, source_type, source_date, freshness_policy, r2_key
       from documents
@@ -498,13 +545,20 @@ export class KnowledgeRepository {
     }]);
   }
 
-  async #vectorScores(query: string, limit: number): Promise<Map<string, number>> {
+  async #vectorScores(
+    query: string,
+    limit: number,
+    collectionId?: string,
+  ): Promise<Map<string, number>> {
     if (!this.#env.WORKERS_AI || !this.#env.KNOWLEDGE_INDEX || !query.trim()) {
       return new Map();
     }
     let [values] = await this.#embedding([query]);
     if (!values) return new Map();
-    let response = await this.#env.KNOWLEDGE_INDEX.query(values, { topK: Math.max(limit * 4, 10) });
+    let response = await this.#env.KNOWLEDGE_INDEX.query(values, {
+      topK: Math.max(limit * 4, 10),
+      ...(collectionId && { filter: { collectionId } }),
+    });
     let scores = new Map<string, number>();
     for (let match of response.matches ?? []) {
       let metadata = match.metadata ?? {};

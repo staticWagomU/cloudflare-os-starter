@@ -2,6 +2,7 @@ node_modules/
 .direnv/
 packages/*/dist/
 packages/*/dist-app/
+packages/*/src/generated/*-configurator-ui.js*
 packages/*/.wrangler/
 packages/*/wrangler.prod.jsonc
 deployment.local.jsonc

@@ -2,6 +2,11 @@
 
 This is a credential-free, read-only example for deployment-owned Cloudflare OS integrations. It exposes deployment information through a typed singleton and records every read as an observation.
 
+This deployment also exposes each readable Collection as a URL-addressed, read-only resource. From
+Home, **Add resource** opens a configurator that searches Collection titles, descriptions, and tags.
+The resulting `KnowledgeCollectionSession` is fixed to the selected Collection and cannot search or
+read documents from another Collection.
+
 ## Adapt it
 
 Change only the pieces your integration needs:
