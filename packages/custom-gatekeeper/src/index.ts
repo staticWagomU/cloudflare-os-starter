@@ -12,7 +12,7 @@ const htmlHeaders = {
 
 function closingPage(message: string): Response {
   return new Response(
-    `<!doctype html><meta charset="utf-8"><title>Restricted Knowledge</title>` +
+    `<!doctype html><meta charset="utf-8"><title>Collections</title>` +
       `<p>${message}</p><script>window.close()</script>`,
     { headers: htmlHeaders },
   );

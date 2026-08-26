@@ -324,7 +324,7 @@ export class KnowledgeRepository {
 
   async #ensureSchema(): Promise<void> {
     if (!storageReady(this.#env)) {
-      throw new Error("Restricted Knowledge requires KNOWLEDGE_DB and KNOWLEDGE_OBJECTS bindings.");
+      throw new Error("Collections requires KNOWLEDGE_DB and KNOWLEDGE_OBJECTS bindings.");
     }
     this.#schemaReady ??= this.#createSchema();
     await this.#schemaReady;

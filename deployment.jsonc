@@ -92,13 +92,13 @@
     "name": "<ORGANIZATION_DISPLAY_NAME>",
     "message": "<ORGANIZATION_GUIDANCE>",
 
-    // Verification mode for Restricted Knowledge. This does not use gigooo-identity.
+    // Verification mode for permission-scoped Collections. This does not use gigooo-identity.
     // "local_account": one Cloudflare OS auto-provisioned account maps to one local principal.
     // "access_email": verify Cloudflare Access JWT and use its email claim as the principal.
     // "identity_future": reserved for a later gigooo-identity migration.
     "authMode": "local_account",
 
-    // Restricted Knowledge storage. Leave null/omitted until the evaluation resources exist.
+    // Collection storage. Leave null/omitted until the evaluation resources exist.
     // D1 requires an existing database name and ID.
     "knowledgeDb": null,
 
