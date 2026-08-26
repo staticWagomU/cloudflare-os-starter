@@ -61,7 +61,7 @@ export interface KnowledgeDocumentInput {
   tags?: string[];
 }
 
-/** Verification-mode internal knowledge search capability provided to the CloudflareOS agent. */
+/** Verification-mode collection search capability provided to the CloudflareOS agent. */
 export interface CustomSession {
   /** Returns deployment diagnostics after recording an observation. */
   getDeploymentInfo(): Promise<CustomDeploymentInfo>;

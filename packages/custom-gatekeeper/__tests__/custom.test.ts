@@ -14,14 +14,14 @@ import {
 describe("custom-gatekeeper", () => {
   it("describes an auto-provisioned singleton", () => {
     expect(describeCustomVendor()).toMatchObject({
-      displayName: "Restricted Knowledge",
+      displayName: "Collections",
       autoProvisionsAccount: true,
       providesAuth: false,
     });
     expect(describeCustomAccount()).toMatchObject({
-      displayName: "Restricted Knowledge",
+      displayName: "Collections",
       singleton: { tsType: "CustomSession" },
-      providesUi: { title: "Restricted Knowledge" },
+      providesUi: { title: "Collections" },
     });
   });
 
@@ -63,7 +63,7 @@ describe("custom-gatekeeper", () => {
     });
     expect(observation).toEqual({
       title: "Read deployment information",
-      description: "Read Restricted Knowledge deployment diagnostics.",
+      description: "Read collection deployment diagnostics.",
     });
 
     session[Symbol.dispose]();

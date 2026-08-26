@@ -281,10 +281,10 @@ function App() {
       <header className="topbar">
         <div className="title-block">
           <div className="title-line">
-            <h1>社内ナレッジ</h1>
+            <h1>コレクション</h1>
             <Badge variant="beta">検証環境</Badge>
           </div>
-          <p>閲覧権限のあるコレクションだけを検索・更新できます。</p>
+          <p>閲覧権限のあるコレクションを検索・更新できます。</p>
         </div>
         <Button
           type="button"

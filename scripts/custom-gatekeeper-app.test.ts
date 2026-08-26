@@ -13,7 +13,8 @@ test("custom Gatekeeper UI does not submit forms from its sandbox", () => {
 });
 
 test("custom Gatekeeper UI is localized for Japanese operators", () => {
-  assert.match(appSource, /社内ナレッジ/);
+  assert.match(appSource, /<h1>コレクション<\/h1>/);
+  assert.doesNotMatch(appSource, /社内ナレッジ/);
   assert.match(appSource, /コレクションを作成/);
   assert.match(appSource, /文書を追加/);
 });

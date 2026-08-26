@@ -57,8 +57,8 @@ type CustomAccountProps = {
 
 const KNOWLEDGE_RESOURCE: SupportedResource = {
   urlPattern: "custom://restricted-knowledge",
-  title: "Restricted Knowledge",
-  description: "Private collections and freshness-aware internal knowledge search.",
+  title: "Collections",
+  description: "Permission-scoped collections with freshness-aware search.",
   icon: CUSTOM_ICON,
 };
 
@@ -66,13 +66,13 @@ export function describeCustomVendor(
   authMode: Cloudflare.Env["AUTH_MODE"] = "local_account",
 ): VendorDescription {
   return {
-    displayName: "Restricted Knowledge",
+    displayName: "Collections",
     url: "https://github.com/cloudflare/cloudflare-os-starter",
     logo: CUSTOM_ICON,
     color: "#eef8f5",
-    tagline: "Search and maintain restricted internal knowledge",
+    tagline: "Search and maintain permission-scoped collections",
     description:
-      "A verification-mode Gatekeeper for restricted internal collections, documents, tags, and freshness-aware search.",
+      "A verification-mode Gatekeeper for collections, documents, tags, and freshness-aware search.",
     autoProvisionsAccount: authMode === "local_account",
     providesAuth: false,
   };
@@ -80,10 +80,10 @@ export function describeCustomVendor(
 
 export function describeCustomAccount(): AccountDescription {
   return {
-    displayName: "Restricted Knowledge",
+    displayName: "Collections",
     avatar: CUSTOM_ICON,
     singleton: { tsType: "CustomSession" },
-    providesUi: { title: "Restricted Knowledge", icon: CUSTOM_ICON },
+    providesUi: { title: "Collections", icon: CUSTOM_ICON },
   };
 }
 
@@ -110,7 +110,7 @@ export class CustomSessionImpl extends RpcTarget implements CustomSession {
   async getDeploymentInfo(): Promise<CustomDeploymentInfo> {
     await this.#approvalQueue.authorizeObservation({
       title: "Read deployment information",
-      description: "Read Restricted Knowledge deployment diagnostics.",
+      description: "Read collection deployment diagnostics.",
     });
     return this.#info;
   }
@@ -118,7 +118,7 @@ export class CustomSessionImpl extends RpcTarget implements CustomSession {
   async listCollections(): Promise<KnowledgeCollectionSummary[]> {
     let collections = await this.#repository.listCollections(this.#principal);
     await this.#approvalQueue.authorizeObservation({
-      title: "List restricted knowledge collections",
+      title: "List collections",
       description: `Listed ${collections.length} collection(s) visible to the current principal.`,
       prohibitAllSharing: true,
     });
@@ -210,8 +210,8 @@ export class CustomGatekeeper
   async describe(): Promise<ResourceDescription> {
     return {
       url: "custom://restricted-knowledge",
-      title: "Restricted Knowledge",
-      snippet: "Search and maintain restricted internal knowledge collections.",
+      title: "Collections",
+      snippet: "Search and maintain permission-scoped collections.",
       suggestedBindingName: "KNOWLEDGE",
       tsType: "CustomSession",
     };
@@ -235,18 +235,18 @@ export class CustomGatekeeper
   }
 
   async addObserver(_id: string, _user: Fetcher<GatekeeperUserVerifier>): Promise<void> {
-    throw new Error("Restricted Knowledge observations are not shareable in verification mode.");
+    throw new Error("Collection observations are not shareable in verification mode.");
   }
   async removeObserver(_id: string): Promise<void> {}
 
   async applyAction(action: number): Promise<void> {
-    throw new Error(`Restricted Knowledge has no queued actions (${action}) in verification mode.`);
+    throw new Error(`Collections has no queued actions (${action}) in verification mode.`);
   }
 
   async rejectAction(_action: number): Promise<void> {}
 
   async revertAction(_action: number): Promise<void> {
-    throw new Error("Restricted Knowledge has no queued actions to revert in verification mode.");
+    throw new Error("Collections has no queued actions to revert in verification mode.");
   }
 }
 
@@ -291,7 +291,7 @@ export class CustomAccount
   async revoke(): Promise<void> {}
 
   reconnect(): Promise<{ url: string }> {
-    throw new Error("Restricted Knowledge is auto-provisioned and has no credentials to reconnect.");
+    throw new Error("Collections is auto-provisioned and has no credentials to reconnect.");
   }
 
   async getAuthenticatedEmail(): Promise<string | null> {
@@ -320,7 +320,7 @@ export class GatekeeperVendor extends WorkerEntrypoint<Cloudflare.Env> {
   @skipRpcValidation()
   async createAccount(): Promise<Fetcher<GatekeeperUser>> {
     if ((this.env.AUTH_MODE ?? "local_account") !== "local_account") {
-      throw new Error("Restricted Knowledge requires a verified Access connection.");
+      throw new Error("Collections requires a verified Access connection.");
     }
     let accountId = crypto.randomUUID();
     return this.ctx.exports.CustomAccount({
@@ -336,10 +336,10 @@ export class GatekeeperVendor extends WorkerEntrypoint<Cloudflare.Env> {
     _options?: GatekeeperConnectOptions,
   ): Promise<{ url: string }> {
     if (this.env.AUTH_MODE !== "access_email") {
-      throw new Error("Restricted Knowledge is auto-provisioned in local verification mode.");
+      throw new Error("Collections is auto-provisioned in local verification mode.");
     }
     if (!this.env.BASE_URL) {
-      throw new Error("Restricted Knowledge BASE_URL is not configured.");
+      throw new Error("Collections BASE_URL is not configured.");
     }
 
     const objectId = this.env.ACCESS_CONNECT.newUniqueId();
