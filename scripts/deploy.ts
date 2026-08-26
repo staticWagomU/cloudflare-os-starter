@@ -483,7 +483,7 @@ export function generateConfigs(config: DeploymentConfig, bases: BaseConfigs): G
     // vendor-RPC bindings. The binding name is what picks the /gatekeeper/<name> path.
     { binding: "GATEKEEPER_CONTEXT", service: config.workers.context.name },
     { binding: "GATEKEEPER_SCHEDULER", service: config.workers.scheduler.name },
-    { binding: "GATEKEEPER_CUSTOM", service: config.workers.customGatekeeper.name },
+    { binding: "GATEKEEPER_COLLECTIONS", service: config.workers.customGatekeeper.name },
   ];
 
   setCommon(workshop, config, config.workers.workshop.name);
@@ -545,7 +545,7 @@ export function generateConfigs(config: DeploymentConfig, bases: BaseConfigs): G
       entrypoint: "GatekeeperVendor",
     },
     {
-      binding: "GATEKEEPER_CUSTOM",
+      binding: "GATEKEEPER_COLLECTIONS",
       service: config.workers.customGatekeeper.name,
       entrypoint: "GatekeeperVendor",
     },
@@ -588,7 +588,7 @@ export function generateConfigs(config: DeploymentConfig, bases: BaseConfigs): G
     CUSTOM_MESSAGE: config.customGatekeeper.message,
     AUTH_MODE: config.customGatekeeper.authMode ?? "local_account",
     ...((config.customGatekeeper.authMode ?? "local_account") === "access_email" ? {
-      BASE_URL: `${origin}/gatekeeper/custom`,
+      BASE_URL: `${origin}/gatekeeper/collections`,
       CF_ACCESS_ISS: config.access.issuer.replace(/\/$/, ""),
       CF_ACCESS_AUD: config.access.audience,
     } : {}),
