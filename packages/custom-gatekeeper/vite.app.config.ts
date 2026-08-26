@@ -48,9 +48,14 @@ export default defineConfig({
     emptyOutDir: true,
     assetsInlineLimit: 100_000_000,
     cssCodeSplit: false,
+    chunkSizeWarningLimit: 700,
     minify: isWatch ? false : "esbuild",
     rollupOptions: {
       input: "app/index.html",
+      onwarn(warning, handler) {
+        if (warning.code === "MODULE_LEVEL_DIRECTIVE" && warning.message.includes("use client")) return;
+        handler(warning);
+      },
       output: {
         entryFileNames: "restricted-knowledge.js",
       },
