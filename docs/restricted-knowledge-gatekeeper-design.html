@@ -478,12 +478,11 @@
       </p>
       <div class="callout risk">
         <p>
-          実装前確認事項: 現在の Cloudflare OS Gatekeeper RPC では、auto-provisioned account の
-          <code>createAccount()</code> に raw request や Access JWT が直接渡りません。
-          Gatekeeper が Identity API を呼ぶには、Access assertion をどこで取得・転送するかを実装前に確認します。
-          候補は、Workshop 側に identity bridge を追加する、Gatekeeper UI の HTTP request だけ Identity 連携する、
-          あるいは Cloudflare OS profile id と Identity の JIT user を明示的に対応付ける方式です。
-          ここを曖昧にしたまま ACL 実装へ進みません。
+          検証版では auto-provision を使わず、<code>connectAccount()</code> がnonce付き接続URLを返します。
+          Router経由のHTTP requestに付いたAccess JWTをGatekeeperが署名、issuer、audienceまで検証し、
+          検証済みemailでaccountを完成させます。raw headerのemailや固定email設定はprincipalに使いません。
+          本番のIdentity移行時は、このHTTP接続点でAccess assertionをIdentity APIへ渡し、
+          email principalを正準user idへ移行します。
         </p>
       </div>
     </div>
@@ -823,7 +822,7 @@ export interface RestrictedKnowledgeSession {
       <h2>検索・追加フロー</h2>
       <h3>検索</h3>
       <ol>
-        <li>検証版では Access email または固定 user key から <code>access_email</code> / <code>local_account</code> principal を作る。</li>
+        <li>検証版では署名検証済みAccess email、またはローカルaccount idから <code>access_email</code> / <code>local_account</code> principalを作る。</li>
         <li>本番想定では Access assertion から gigooo-identity を呼び、<code>user.id</code>、roles、permissions を解決する。</li>
         <li>principal に一致する reader/editor/owner の Collection を D1 で引く。</li>
         <li>query を Workers AI embedding model で embedding 化する。</li>
@@ -875,7 +874,7 @@ export interface RestrictedKnowledgeSession {
           <tr>
             <td>Vars</td>
             <td>検証版の認可モードと、将来の Identity 接続設定</td>
-            <td><code>AUTH_MODE=local_account</code> または <code>AUTH_MODE=access_email</code>。本番想定では <code>IDENTITY_API_URL</code>, <code>ACCESS_TEAM_DOMAIN</code>, <code>ACCESS_AUD</code>, <code>IDENTITY_APP_ID</code> を追加。</td>
+            <td><code>AUTH_MODE=local_account</code>、または <code>AUTH_MODE=access_email</code> と <code>BASE_URL</code>, <code>CF_ACCESS_ISS</code>, <code>CF_ACCESS_AUD</code>。本番想定では <code>IDENTITY_API_URL</code>, <code>IDENTITY_APP_ID</code> を追加。</td>
           </tr>
           <tr>
             <td>Secrets</td>
@@ -950,6 +949,7 @@ export interface RestrictedKnowledgeSession {
       <h2>テスト方針</h2>
       <ul>
         <li>unit: principal matching、ACL 判定、role order、tag normalization、freshness scoring、document path validation、chunking。</li>
+        <li>auth: Access JWTの署名、issuer、audience、email claim、接続nonceの期限と再利用拒否。</li>
         <li>worker tests: Gatekeeper session の list/search/read/add と approval queue の呼び出し。</li>
         <li>migration tests: D1 schema migration と seed data。</li>
         <li>integration: 検証版では <code>access_email</code> / <code>local_account</code> の owner/editor/reader/denied user の操作差分。</li>
@@ -972,7 +972,7 @@ export interface RestrictedKnowledgeSession {
         <tbody>
           <tr>
             <td>user identity を custom Gatekeeper がどう受け取るか</td>
-            <td>検証版では <code>access_email</code> / <code>local_account</code> で回避する。本番想定では Identity API に Access assertion が必要だが、Gatekeeper RPC の auto-provisioned account には raw request が直接渡らない。Workshop 側の bridge、Gatekeeper UI HTTP request、OS profile との対応付けのどれで扱うかを Identity 移行前に固定する。</td>
+            <td>検証版はnonce付きHTTP接続点でAccess JWTを検証し、<code>access_email</code> accountを作る。<code>local_account</code>はローカル検証専用。本番のIdentity移行では同じ接続点からIdentity APIを呼び、正準user idへの移行と既存ACLの変換手順を別途レビューする。</td>
           </tr>
           <tr>
             <td>Role / Permission を共有単位としてどこまで使うか</td>

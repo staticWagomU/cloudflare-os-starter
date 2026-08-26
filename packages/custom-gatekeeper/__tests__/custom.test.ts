@@ -25,6 +25,13 @@ describe("custom-gatekeeper", () => {
     });
   });
 
+  it("requires an explicit connection for Access email principals", () => {
+    expect(describeCustomVendor("access_email")).toMatchObject({
+      autoProvisionsAccount: false,
+      providesAuth: false,
+    });
+  });
+
   it("authorizes the observation before returning deployment information", async () => {
     let observation: unknown;
     let disposed = false;

@@ -100,10 +100,8 @@ export interface CustomGatekeeperConfig {
   name: string;
   /** Short deployment guidance shown to agents. */
   message: string;
-  /** Verification mode uses local account IDs unless a fixed Access email is supplied. */
+  /** Verification mode uses local account IDs or an email from a verified Access assertion. */
   authMode?: "local_account" | "access_email" | "identity_future";
-  /** Optional fixed email principal for evaluation before gigooo-identity is connected. */
-  verificationEmail?: string | null;
   /** D1 database backing Restricted Knowledge. Omit/null to leave the feature unbound. */
   knowledgeDb?: { databaseName: string; databaseId: string } | null;
   /** R2 bucket backing Restricted Knowledge document bodies. null requests Wrangler provisioning. */
@@ -196,6 +194,10 @@ export type ProdWranglerConfig =
     secrets?: { required: string[] };
     /** Artifacts namespaces. An array, unlike upstream's single-binding declaration. */
     artifacts?: { binding: string; namespace: string }[];
+    /** Durable Object bindings carried through from a Gatekeeper's base config. */
+    durable_objects?: {
+      bindings: Array<{ name: string; class_name: string }>;
+    };
   };
 
 /** The generated configs, keyed as `deployment.jsonc` keys them. */

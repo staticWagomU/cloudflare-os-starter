@@ -260,7 +260,6 @@ test("generates Restricted Knowledge storage bindings when configured", async ()
     c.customGatekeeper = {
       ...c.customGatekeeper,
       authMode: "access_email",
-      verificationEmail: "owner@example.com",
       knowledgeDb: {
         databaseName: "restricted-knowledge",
         databaseId: "11111111-2222-3333-4444-555555555555",
@@ -275,7 +274,9 @@ test("generates Restricted Knowledge storage bindings when configured", async ()
     CUSTOM_NAME: "Acme",
     CUSTOM_MESSAGE: "Use the company handbook.",
     AUTH_MODE: "access_email",
-    CUSTOM_VERIFICATION_EMAIL: "owner@example.com",
+    BASE_URL: "https://os.example.com/gatekeeper/custom",
+    CF_ACCESS_ISS: "https://acme.cloudflareaccess.com",
+    CF_ACCESS_AUD: "access-audience",
     KNOWLEDGE_EMBEDDING_MODEL: "@cf/baai/bge-base-en-v1.5",
   });
   assert.deepEqual(generated.customGatekeeper.d1_databases, [{
@@ -292,6 +293,10 @@ test("generates Restricted Knowledge storage bindings when configured", async ()
     index_name: "restricted-knowledge-index",
   }]);
   assert.deepEqual(generated.customGatekeeper.ai, { binding: "WORKERS_AI" });
+  assert.deepEqual(generated.customGatekeeper.durable_objects,
+    (await baseConfigs()).customGatekeeper.durable_objects);
+  assert.deepEqual(generated.customGatekeeper.migrations,
+    (await baseConfigs()).customGatekeeper.migrations);
 });
 
 test("gives the router the public route, the frontend, and every service binding", async () => {

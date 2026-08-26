@@ -297,10 +297,6 @@ export function validateConfig(config: DeploymentConfig): DeploymentConfig {
     throw new Error(
       "customGatekeeper.authMode must be local_account, access_email, or identity_future.");
   }
-  if (custom.verificationEmail !== undefined && custom.verificationEmail !== null &&
-      !/^[^@\s]+@[^@\s]+$/.test(custom.verificationEmail)) {
-    throw new Error("customGatekeeper.verificationEmail must be null or an email address.");
-  }
   if (custom.knowledgeDb !== undefined && custom.knowledgeDb !== null) {
     if (typeof custom.knowledgeDb !== "object" ||
         typeof custom.knowledgeDb.databaseName !== "string" ||
@@ -589,9 +585,11 @@ export function generateConfigs(config: DeploymentConfig, bases: BaseConfigs): G
     CUSTOM_NAME: config.customGatekeeper.name,
     CUSTOM_MESSAGE: config.customGatekeeper.message,
     AUTH_MODE: config.customGatekeeper.authMode ?? "local_account",
-    ...(config.customGatekeeper.verificationEmail
-      ? { CUSTOM_VERIFICATION_EMAIL: config.customGatekeeper.verificationEmail }
-      : {}),
+    ...((config.customGatekeeper.authMode ?? "local_account") === "access_email" ? {
+      BASE_URL: `${origin}/gatekeeper/custom`,
+      CF_ACCESS_ISS: config.access.issuer.replace(/\/$/, ""),
+      CF_ACCESS_AUD: config.access.audience,
+    } : {}),
     ...(config.customGatekeeper.embeddingModel
       ? { KNOWLEDGE_EMBEDDING_MODEL: config.customGatekeeper.embeddingModel }
       : {}),
